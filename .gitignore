@@ -1,0 +1,27 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IntelliJ ###
+.idea/
+*.iml
+*.ipr
+*.iws
+
+### Eclipse / VSCode ###
+.classpath
+.project
+.settings/
+.vscode/
+
+### OS ###
+.DS_Store
+
+### Env / secrets ###
+.env
+*.local.properties
+application-secrets.yml
+
+### Local file storage (uploaded photos) ###
+uploads/

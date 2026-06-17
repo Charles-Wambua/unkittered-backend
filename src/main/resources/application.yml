@@ -1,0 +1,75 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: unkittered-api
+
+  servlet:
+    multipart:
+      max-file-size: ${UNKITTERED_MAX_UPLOAD:8MB}
+      max-request-size: ${UNKITTERED_MAX_REQUEST:10MB}
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/unkittered}
+    username: ${DB_USERNAME:unkittered}
+    password: ${DB_PASSWORD:unkittered}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+# AWS / SQS (LocalStack by default for local dev)
+spring.cloud.aws:
+  region:
+    static: ${AWS_REGION:us-east-1}
+  credentials:
+    access-key: ${AWS_ACCESS_KEY_ID:test}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+  sqs:
+    endpoint: ${AWS_SQS_ENDPOINT:http://localstack:4566}
+
+unkittered:
+  jwt:
+    # Override in production via UNKITTERED_JWT_SECRET. Must be >= 32 bytes.
+    secret: ${UNKITTERED_JWT_SECRET:dev-only-change-me-please-32bytes-minimum-secret}
+    # Access token lifetime in minutes
+    access-ttl-minutes: ${UNKITTERED_JWT_TTL:10080}
+  discover:
+    cache-ttl-seconds: 60
+    deck-size: 30
+  queue:
+    match-events: ${UNKITTERED_MATCH_QUEUE:unkittered-match-events}
+  storage:
+    # 'local' (disk, default for self-hosting) or 's3' (extension point, not yet wired).
+    provider: ${UNKITTERED_STORAGE_PROVIDER:local}
+    local:
+      # Where uploaded files are written. Use an absolute path in production.
+      dir: ${UNKITTERED_STORAGE_DIR:./uploads}
+    # Absolute base the client uses to fetch files — set to the server's reachable
+    # address (a phone can't reach localhost). Files are served at <base>/files/<name>.
+    public-base-url: ${UNKITTERED_PUBLIC_BASE_URL:http://localhost:8081}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.unkittered: DEBUG
