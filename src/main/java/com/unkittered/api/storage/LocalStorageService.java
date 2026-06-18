@@ -28,15 +28,18 @@ public class LocalStorageService implements StorageService {
 
     private static final Logger log = LoggerFactory.getLogger(LocalStorageService.class);
 
-    /** Allowed image MIME types → file extension. */
-    private static final Map<String, String> EXTENSIONS = Map.of(
-            "image/jpeg", ".jpg",
-            "image/jpg", ".jpg",
-            "image/png", ".png",
-            "image/webp", ".webp",
-            "image/gif", ".gif",
-            "image/heic", ".heic",
-            "image/heif", ".heif");
+    /** Allowed image & video MIME types → file extension. */
+    private static final Map<String, String> EXTENSIONS = Map.ofEntries(
+            Map.entry("image/jpeg", ".jpg"),
+            Map.entry("image/jpg", ".jpg"),
+            Map.entry("image/png", ".png"),
+            Map.entry("image/webp", ".webp"),
+            Map.entry("image/gif", ".gif"),
+            Map.entry("image/heic", ".heic"),
+            Map.entry("image/heif", ".heif"),
+            Map.entry("video/mp4", ".mp4"),
+            Map.entry("video/quicktime", ".mov"),
+            Map.entry("video/webm", ".webm"));
 
     static final String URL_PREFIX = "/files/";
 

@@ -53,7 +53,12 @@ public class DiscoverService {
                         distanceKm(viewer, candidate)))
                 .toList();
 
-        redis.opsForValue().set(key, deck, cacheTtl);
+        // Never cache an empty deck: a user who has exhausted their deck must
+        // re-query each time so that newly-joined people surface immediately
+        // (otherwise they'd wait out the full cache TTL to see anyone new).
+        if (!deck.isEmpty()) {
+            redis.opsForValue().set(key, deck, cacheTtl);
+        }
         return deck;
     }
 
