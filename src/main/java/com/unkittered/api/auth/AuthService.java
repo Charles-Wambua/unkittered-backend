@@ -63,6 +63,21 @@ public class AuthService {
     }
 
     /**
+     * Set a new password for the account with the given email, then sign in.
+     * SECURITY: this MVP trusts the request — add email/OTP verification before
+     * production so it can't be used to take over accounts.
+     */
+    @Transactional
+    public AuthResponse resetPassword(ResetPasswordRequest req) {
+        String email = req.email().trim().toLowerCase();
+        User user = users.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> ApiException.notFound("No account with that email"));
+        user.setPasswordHash(encoder.encode(req.newPassword()));
+        users.save(user);
+        return toResponse(user);
+    }
+
+    /**
      * Social sign-in. With no real identity provider wired up yet, this
      * provisions a fresh passwordless account each time and drops the user into
      * onboarding — exercising the full social flow end-to-end. When a real OIDC

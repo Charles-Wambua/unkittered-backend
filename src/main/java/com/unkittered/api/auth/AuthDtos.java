@@ -26,6 +26,16 @@ public final class AuthDtos {
             @NotBlank String provider) {
     }
 
+    /**
+     * Reset a password by setting a new one. NOTE: needs an email/OTP
+     * verification step before production — this is the no-email MVP.
+     */
+    public record ResetPasswordRequest(
+            @Email @NotBlank String email,
+            @NotBlank @Size(min = 8, message = "must be at least 8 characters")
+            String newPassword) {
+    }
+
     /** Mirrors the Flutter AuthUser.fromJson contract. */
     public record UserDto(
             String id,

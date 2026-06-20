@@ -37,6 +37,12 @@ public class AuthController {
         return authService.oauth(req);
     }
 
+    @Operation(summary = "Reset password by setting a new one")
+    @PostMapping("/reset-password")
+    public AuthResponse resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        return authService.resetPassword(req);
+    }
+
     @Operation(summary = "Log out (stateless — the client simply discards its token)")
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
