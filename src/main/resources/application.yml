@@ -3,6 +3,15 @@ server:
   servlet:
     context-path: /
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: unkittered-api
+
 spring:
   application:
     name: unkittered-api
@@ -54,6 +63,12 @@ unkittered:
   discover:
     cache-ttl-seconds: 60
     deck-size: 30
+  firebase:
+    # Service-account JSON for FCM push. Drop the file from the Firebase console
+    # (Project settings → Service accounts → Generate new private key) at
+    # src/main/resources/firebase-service-account.json, or point this at an
+    # absolute path / env var. If absent, push is simply disabled (app still boots).
+    credentials: ${FIREBASE_CREDENTIALS:classpath:firebase-service-account.json}
   queue:
     match-events: ${UNKITTERED_MATCH_QUEUE:unkittered-match-events}
   storage:
@@ -62,9 +77,12 @@ unkittered:
     local:
       # Where uploaded files are written. Use an absolute path in production.
       dir: ${UNKITTERED_STORAGE_DIR:./uploads}
-    # Absolute base the client uses to fetch files — set to the server's reachable
-    # address (a phone can't reach localhost). Files are served at <base>/files/<name>.
-    public-base-url: ${UNKITTERED_PUBLIC_BASE_URL:http://localhost:8081}
+    # Base the client prepends to fetch files. Default is EMPTY → media URLs are
+    # returned relative ("/files/<name>"), which the apps resolve against whatever
+    # origin they're actually talking to (emulator, tunnel, LAN, prod) — no
+    # host/port mismatch possible. Set this to an absolute CDN/host in production
+    # if you serve media from a different origin than the API.
+    public-base-url: ${UNKITTERED_PUBLIC_BASE_URL:}
 
 springdoc:
   swagger-ui:

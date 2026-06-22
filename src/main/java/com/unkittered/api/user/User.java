@@ -31,6 +31,12 @@ public class User {
     @Column(name = "subscription_tier", nullable = false)
     private String subscriptionTier = "free";
 
+    @Column(name = "is_admin", nullable = false)
+    private boolean admin = false;
+
+    @Column(nullable = false)
+    private boolean suspended = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -54,6 +60,10 @@ public class User {
     public void setOnboardingComplete(boolean onboardingComplete) { this.onboardingComplete = onboardingComplete; }
     public String getSubscriptionTier() { return subscriptionTier; }
     public void setSubscriptionTier(String subscriptionTier) { this.subscriptionTier = subscriptionTier; }
+    public boolean isAdmin() { return admin; }
+    public void setAdmin(boolean admin) { this.admin = admin; }
+    public boolean isSuspended() { return suspended; }
+    public void setSuspended(boolean suspended) { this.suspended = suspended; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

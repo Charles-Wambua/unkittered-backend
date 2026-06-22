@@ -30,6 +30,8 @@ public record ProfileDto(
         boolean showActivity,
         boolean hideDistance,
         boolean incognito,
-        String cardQuote
+        String cardQuote,
+        String connectionMode,
+        boolean openToFriends
 ) implements Serializable {
 }

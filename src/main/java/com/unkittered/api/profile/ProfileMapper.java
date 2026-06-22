@@ -71,7 +71,9 @@ public class ProfileMapper {
                 share,
                 hideDistance,
                 incognito,
-                p.getCardQuote()
+                p.getCardQuote(),
+                p.getConnectionMode(),
+                p.isOpenToFriends()
         );
     }
 }

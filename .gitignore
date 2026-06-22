@@ -25,3 +25,7 @@ application-secrets.yml
 
 ### Local file storage (uploaded photos) ###
 uploads/
+
+# Firebase Admin service account (secret — never commit)
+#src/main/resources/firebase-service-account.json
+#firebase-service-account*.json

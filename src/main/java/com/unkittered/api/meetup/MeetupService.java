@@ -21,13 +21,37 @@ public class MeetupService {
 
     private final MeetupRepository meetups;
     private final MeetupRsvpRepository rsvps;
+    private final MeetupReportRepository reports;
     private final ProfileRepository profiles;
 
     public MeetupService(MeetupRepository meetups, MeetupRsvpRepository rsvps,
-                         ProfileRepository profiles) {
+                         MeetupReportRepository reports, ProfileRepository profiles) {
         this.meetups = meetups;
         this.rsvps = rsvps;
+        this.reports = reports;
         this.profiles = profiles;
+    }
+
+    /** Host-only: delete a meetup (RSVPs/reports cascade). */
+    @Transactional
+    public void delete(UUID meetupId, UUID userId) {
+        Meetup m = meetups.findById(meetupId)
+                .orElseThrow(() -> ApiException.notFound("Meetup not found"));
+        if (!m.getHostId().equals(userId)) {
+            throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN,
+                    "Only the host can cancel this meetup");
+        }
+        meetups.deleteById(meetupId);
+    }
+
+    /** File a moderation report against a meetup. */
+    @Transactional
+    public void report(UUID meetupId, UUID reporterId, String reason) {
+        if (!meetups.existsById(meetupId)) {
+            throw ApiException.notFound("Meetup not found");
+        }
+        reports.save(new MeetupReport(meetupId, reporterId,
+                reason == null || reason.isBlank() ? "Unspecified" : reason));
     }
 
     @Transactional(readOnly = true)

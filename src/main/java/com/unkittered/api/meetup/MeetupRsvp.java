@@ -22,6 +22,12 @@ public class MeetupRsvp {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "reminded_24h", nullable = false)
+    private boolean reminded24h = false;
+
+    @Column(name = "reminded_1h", nullable = false)
+    private boolean reminded1h = false;
+
     protected MeetupRsvp() { }
 
     public MeetupRsvp(UUID meetupId, UUID userId) {
@@ -29,5 +35,10 @@ public class MeetupRsvp {
         this.userId = userId;
     }
 
+    public UUID getMeetupId() { return meetupId; }
     public UUID getUserId() { return userId; }
+    public boolean isReminded24h() { return reminded24h; }
+    public void setReminded24h(boolean v) { this.reminded24h = v; }
+    public boolean isReminded1h() { return reminded1h; }
+    public void setReminded1h(boolean v) { this.reminded1h = v; }
 }

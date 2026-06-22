@@ -51,6 +51,20 @@ public class MeetupController {
         return meetups.rsvp(parseId(id), CurrentUser.id(), false);
     }
 
+    @Operation(summary = "Host-only: cancel (delete) a meetup")
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable String id) {
+        meetups.delete(parseId(id), CurrentUser.id());
+    }
+
+    @Operation(summary = "Report a meetup for moderation")
+    @PostMapping("/{id}/report")
+    public void report(@PathVariable String id,
+                       @RequestBody(required = false) Map<String, String> body) {
+        final String reason = body == null ? null : body.get("reason");
+        meetups.report(parseId(id), CurrentUser.id(), reason);
+    }
+
     private UUID parseId(String raw) {
         try {
             return UUID.fromString(raw);

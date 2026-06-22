@@ -11,6 +11,9 @@ import java.util.UUID;
 
 public interface ProfileRepository extends JpaRepository<Profile, UUID> {
 
+    /** Count of verified profiles (for the admin dashboard). */
+    long countByVerifiedTrue();
+
     /** Bump the user's last-active timestamp without loading the entity. */
     @Modifying
     @Query("UPDATE Profile p SET p.lastActiveAt = :now WHERE p.userId = :id")
@@ -42,9 +45,11 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
                   SELECT l2.likerId FROM Like l2 WHERE l2.likeeId = :viewerId
               )
           )
-        ORDER BY p.lastActiveAt DESC
+        ORDER BY
+          CASE WHEN p.boostedUntil IS NOT NULL AND p.boostedUntil > :now THEN 0 ELSE 1 END,
+          p.lastActiveAt DESC
         """)
-    List<Profile> findDeckFor(@Param("viewerId") UUID viewerId);
+    List<Profile> findDeckFor(@Param("viewerId") UUID viewerId, @Param("now") Instant now);
 
     /** Profiles whose owners have liked the viewer, excluding blocks in either direction. */
     @Query("""

@@ -10,6 +10,7 @@ import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
+import com.unkittered.api.push.PushService;
 import com.unkittered.api.realtime.RealtimeEvents.MessagePush;
 import com.unkittered.api.realtime.RealtimeGateway;
 import com.unkittered.api.subscription.SubscriptionService;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Matches and 1:1 conversations for the signed-in user. */
@@ -31,16 +33,19 @@ public class ChatService {
     private final ProfileMapper mapper;
     private final RealtimeGateway realtime;
     private final SubscriptionService subscriptions;
+    private final PushService push;
 
     public ChatService(MatchRepository matches, MessageRepository messages,
                        ProfileRepository profiles, ProfileMapper mapper,
-                       RealtimeGateway realtime, SubscriptionService subscriptions) {
+                       RealtimeGateway realtime, SubscriptionService subscriptions,
+                       PushService push) {
         this.matches = matches;
         this.messages = messages;
         this.profiles = profiles;
         this.mapper = mapper;
         this.realtime = realtime;
         this.subscriptions = subscriptions;
+        this.push = push;
     }
 
     @Transactional(readOnly = true)
@@ -95,7 +100,16 @@ public class ChatService {
 
         // Push the message live to the recipient's open sessions. The sender
         // already gets it as this method's HTTP response, so we skip echoing.
-        realtime.sendToUser(otherUserId(match, viewerId), MessagePush.of(saved));
+        UUID recipient = otherUserId(match, viewerId);
+        realtime.sendToUser(recipient, MessagePush.of(saved));
+
+        // Mobile push for when their app is closed.
+        String senderName = profiles.findById(viewerId).map(Profile::getName)
+                .filter(n -> !n.isBlank()).orElse("New message");
+        String preview = text.length() > 120 ? text.substring(0, 117) + "…" : text;
+        push.sendToUser(recipient, senderName, preview,
+                Map.of("type", "message", "matchId", matchId.toString(),
+                        "senderId", viewerId.toString()));
 
         return MessageDto.from(saved, viewerId);
     }

@@ -10,6 +10,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -21,7 +26,10 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
-            "/actuator/health"
+            "/actuator/health",
+            "/actuator/prometheus", // scrape target (put behind a network ACL/basic-auth in prod)
+            "/admin/**",            // static dashboard shell; the API it calls is still admin-guarded
+            "/admin"
     };
 
     private final JwtAuthFilter jwtAuthFilter;
@@ -46,5 +54,22 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * CORS for browser clients (the admin dashboard hosted on another origin,
+     * local dev preview servers, etc.). Auth is via a Bearer token (no cookies),
+     * so wildcard origins are safe and credentials stay off.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration c = new CorsConfiguration();
+        c.setAllowedOriginPatterns(List.of("*"));
+        c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        c.setAllowedHeaders(List.of("*"));
+        c.setAllowCredentials(false);
+        UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
+        src.registerCorsConfiguration("/**", c);
+        return src;
     }
 }

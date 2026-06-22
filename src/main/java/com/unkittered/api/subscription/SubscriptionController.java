@@ -33,10 +33,19 @@ public class SubscriptionController {
 
     public record TierResponse(String tier) { }
 
+    public record BoostResponse(String boostedUntil, int boostsRemaining) { }
+
     @Operation(summary = "Get the current user's membership tier")
     @GetMapping("/me")
     public TierResponse me() {
         return new TierResponse(subscriptions.tierOf(CurrentUser.id()));
+    }
+
+    @Operation(summary = "Activate a profile Boost (Plus & Gold)")
+    @PostMapping("/boost")
+    public BoostResponse boost() {
+        var r = subscriptions.boost(CurrentUser.id());
+        return new BoostResponse(r.boostedUntil().toString(), r.boostsRemaining());
     }
 
     @Operation(summary = "Verify a store purchase and activate the matching tier")

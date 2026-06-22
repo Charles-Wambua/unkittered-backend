@@ -66,6 +66,19 @@ public class Profile {
     @Column(name = "incognito", nullable = false)
     private boolean incognito = false;
 
+    /** What this member is here for: "dating" | "friends" | "both". Drives the
+     *  reciprocal discover filter (see DiscoverService). */
+    @Column(name = "connection_mode", nullable = false)
+    private String connectionMode = "dating";
+
+    /** Denormalised (= mode != "dating") so the client can show the 🤝 badge. */
+    @Column(name = "open_to_friends", nullable = false)
+    private boolean openToFriends = false;
+
+    /** While in the future, this profile is boosted to the top of others' decks. */
+    @Column(name = "boosted_until")
+    private Instant boostedUntil;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "profile_interests", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "value")
@@ -131,6 +144,12 @@ public class Profile {
     public void setHideDistance(boolean hideDistance) { this.hideDistance = hideDistance; }
     public boolean isIncognito() { return incognito; }
     public void setIncognito(boolean incognito) { this.incognito = incognito; }
+    public String getConnectionMode() { return connectionMode; }
+    public void setConnectionMode(String connectionMode) { this.connectionMode = connectionMode; }
+    public boolean isOpenToFriends() { return openToFriends; }
+    public void setOpenToFriends(boolean openToFriends) { this.openToFriends = openToFriends; }
+    public Instant getBoostedUntil() { return boostedUntil; }
+    public void setBoostedUntil(Instant boostedUntil) { this.boostedUntil = boostedUntil; }
     public List<String> getInterests() { return interests; }
     public void setInterests(List<String> interests) { this.interests = interests; }
     public List<String> getGalleryImages() { return galleryImages; }

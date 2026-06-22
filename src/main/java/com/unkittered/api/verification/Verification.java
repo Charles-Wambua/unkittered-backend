@@ -35,9 +35,13 @@ public class Verification {
         this.selfieUrl = selfieUrl;
     }
 
+    public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
+    public String getSelfieUrl() { return selfieUrl; }
     public String getStatus() { return status; }
+    public Instant getCreatedAt() { return createdAt; }
     public void setSelfieUrl(String selfieUrl) { this.selfieUrl = selfieUrl; }
     public void setStatus(String status) { this.status = status; }
     public void setCreatedAt(Instant t) { this.createdAt = t; }
+    public void setReviewedAt(Instant t) { this.reviewedAt = t; }
 }

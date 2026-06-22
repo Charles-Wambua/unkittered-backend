@@ -10,12 +10,14 @@ import com.unkittered.api.profile.ProfileRepository;
 import com.unkittered.api.user.User;
 import com.unkittered.api.user.UserRepository;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.temporal.WeekFields;
 import java.util.List;
 import java.util.UUID;
 
@@ -110,15 +112,24 @@ public class InteractionService {
         }
     }
 
-    /** Redis-backed per-day counter; only enforced for free-tier users on normal likes. */
+    /**
+     * Server-side quota enforcement — the authoritative backstop behind the
+     * client's gating. Normal likes: free tier is capped daily, paid tiers are
+     * unlimited. Super-likes: a weekly allowance that scales with tier.
+     */
     private void enforceDailyLimit(UUID likerId, boolean superLike) {
-        if (superLike) return; // super-likes have their own (weekly) allowance — TODO
         User user = users.findById(likerId)
                 .orElseThrow(() -> ApiException.unauthorized("Account not found"));
-        if (!"free".equalsIgnoreCase(user.getSubscriptionTier())) {
+        String tier = user.getSubscriptionTier() == null
+                ? "free" : user.getSubscriptionTier().toLowerCase();
+
+        if (superLike) {
+            enforceSuperLikeWeekly(likerId, tier);
+            return;
+        }
+        if (!"free".equals(tier)) {
             return; // paid tiers have unlimited likes
         }
-
         String day = LocalDate.now(ZoneOffset.UTC).toString();
         String key = "likes:daily:" + likerId + ":" + day;
         Long count = redis.opsForValue().increment(key);
@@ -126,8 +137,29 @@ public class InteractionService {
             redis.expire(key, Duration.ofDays(2));
         }
         if (count != null && count > FREE_DAILY_LIKES) {
-            throw new ApiException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                     "Daily like limit reached. Upgrade to Unkittered Plus for unlimited likes.");
+        }
+    }
+
+    /** Weekly super-like allowance: free 1, Plus 5, Gold 10. */
+    private void enforceSuperLikeWeekly(UUID likerId, String tier) {
+        int limit = switch (tier) {
+            case "gold" -> 10;
+            case "plus" -> 5;
+            default -> 1;
+        };
+        LocalDate now = LocalDate.now(ZoneOffset.UTC);
+        int week = now.get(WeekFields.ISO.weekOfWeekBasedYear());
+        int year = now.get(WeekFields.ISO.weekBasedYear());
+        String key = "superlikes:weekly:" + likerId + ":" + year + "-" + week;
+        Long count = redis.opsForValue().increment(key);
+        if (count != null && count == 1L) {
+            redis.expire(key, Duration.ofDays(8));
+        }
+        if (count != null && count > limit) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
+                    "You've used all your Super Likes this week. Upgrade for more.");
         }
     }
 }

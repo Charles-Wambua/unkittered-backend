@@ -32,6 +32,7 @@ public final class MeDtos {
             String cardQuote,
             Boolean showActivity,
             Boolean hideDistance,
-            Boolean incognito) {
+            Boolean incognito,
+            String connectionMode) {
     }
 }

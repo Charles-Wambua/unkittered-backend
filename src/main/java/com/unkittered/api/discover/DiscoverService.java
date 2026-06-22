@@ -45,7 +45,9 @@ public class DiscoverService {
         }
 
         Profile viewer = profiles.findById(viewerId).orElse(null);
-        List<ProfileDto> deck = profiles.findDeckFor(viewerId).stream()
+        String viewerMode = viewer != null ? viewer.getConnectionMode() : "dating";
+        List<ProfileDto> deck = profiles.findDeckFor(viewerId, java.time.Instant.now()).stream()
+                .filter(candidate -> intentMatches(viewerMode, candidate.getConnectionMode()))
                 .limit(deckSize)
                 .map(candidate -> mapper.toDto(
                         candidate,
@@ -65,6 +67,26 @@ public class DiscoverService {
     /** Invalidate a viewer's cached deck (e.g. after a like/pass changes it). */
     public void evict(UUID viewerId) {
         redis.delete(CACHE_PREFIX + viewerId);
+    }
+
+    /**
+     * Reciprocal intent: show a candidate only when what the viewer wants
+     * overlaps what the candidate wants. "both" overlaps with everyone.
+     * <pre>
+     *   viewer\cand  dating  friends  both
+     *   dating         ✓        ✗      ✓
+     *   friends        ✗        ✓      ✓
+     *   both           ✓        ✓      ✓
+     * </pre>
+     */
+    private static boolean intentMatches(String viewerMode, String candidateMode) {
+        String v = viewerMode == null ? "dating" : viewerMode;
+        String c = candidateMode == null ? "dating" : candidateMode;
+        boolean viewerWantsDating = !"friends".equals(v);   // dating or both
+        boolean viewerWantsFriends = !"dating".equals(v);   // friends or both
+        boolean candWantsDating = !"friends".equals(c);
+        boolean candWantsFriends = !"dating".equals(c);
+        return (viewerWantsDating && candWantsDating) || (viewerWantsFriends && candWantsFriends);
     }
 
     /** 0-100 score from shared interests and lifestyle tags, plus small bonuses. */

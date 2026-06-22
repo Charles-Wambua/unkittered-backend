@@ -70,6 +70,13 @@ public class MeService {
             boolean gold = "gold".equalsIgnoreCase(requireUser(userId).getSubscriptionTier());
             p.setIncognito(req.incognito() && gold);
         }
+        if (req.connectionMode() != null) {
+            String m = req.connectionMode().trim().toLowerCase();
+            if (m.equals("dating") || m.equals("friends") || m.equals("both")) {
+                p.setConnectionMode(m);
+                p.setOpenToFriends(!m.equals("dating"));  // keep the badge flag in sync
+            }
+        }
         if (req.interests() != null)          p.setInterests(new ArrayList<>(req.interests()));
         if (req.galleryImages() != null)      p.setGalleryImages(new ArrayList<>(req.galleryImages()));
         if (req.pets() != null)               p.setPets(new ArrayList<>(req.pets()));

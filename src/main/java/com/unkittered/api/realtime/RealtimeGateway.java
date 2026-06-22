@@ -80,6 +80,23 @@ public class RealtimeGateway extends TextWebSocketHandler {
         }
     }
 
+    /** Number of distinct users with at least one live connection right now. */
+    public int onlineCount() {
+        return sessions.size();
+    }
+
+    /** Snapshot of the user ids currently connected (one or more devices each). */
+    public Set<UUID> onlineUserIds() {
+        return new java.util.HashSet<>(sessions.keySet());
+    }
+
+    /** Total open sockets across all users (a user may hold several). */
+    public int connectionCount() {
+        int n = 0;
+        for (Set<WebSocketSession> s : sessions.values()) n += s.size();
+        return n;
+    }
+
     private static UUID userId(WebSocketSession session) {
         Object id = session.getAttributes().get(AuthHandshakeInterceptor.USER_ID);
         return id instanceof UUID u ? u : null;
