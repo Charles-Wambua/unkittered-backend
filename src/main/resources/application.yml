@@ -22,7 +22,7 @@ spring:
       max-request-size: ${UNKITTERED_MAX_REQUEST:10MB}
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://postgres:5432/unkittered}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/unkittered}
     username: ${DB_USERNAME:unkittered}
     password: ${DB_PASSWORD:unkittered}
 
@@ -41,8 +41,8 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:redis}
-      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
 
 # AWS / SQS (LocalStack by default for local dev)
 spring.cloud.aws:
@@ -52,7 +52,7 @@ spring.cloud.aws:
     access-key: ${AWS_ACCESS_KEY_ID:test}
     secret-key: ${AWS_SECRET_ACCESS_KEY:test}
   sqs:
-    endpoint: ${AWS_SQS_ENDPOINT:http://localstack:4566}
+    endpoint: ${AWS_SQS_ENDPOINT:http://localhost:4567}
 
 unkittered:
   jwt:

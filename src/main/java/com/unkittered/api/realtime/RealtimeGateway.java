@@ -71,12 +71,22 @@ public class RealtimeGateway extends TextWebSocketHandler {
             log.warn("Failed to serialise realtime payload for {}: {}", userId, e.getMessage());
             return;
         }
-        for (WebSocketSession s : set) {
+        Iterator<WebSocketSession> iterator = set.iterator();
+        while (iterator.hasNext()) {
+            WebSocketSession s = iterator.next();
+            if (!s.isOpen()) {
+                iterator.remove();
+                continue;
+            }
             try {
-                if (s.isOpen()) s.sendMessage(new TextMessage(json));
+                s.sendMessage(new TextMessage(json));
             } catch (IOException e) {
+                iterator.remove();
                 log.debug("Dropping dead WS session for {}: {}", userId, e.getMessage());
             }
+        }
+        if (set.isEmpty()) {
+            sessions.remove(userId, set);
         }
     }
 

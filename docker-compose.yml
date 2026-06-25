@@ -38,24 +38,5 @@ services:
     volumes:
       - "./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init-localstack.sh"
 
-  api:
-    build: .
-    container_name: unkittered-api
-    ports:
-      - "8081:8081"
-    environment:
-      DB_URL: jdbc:postgresql://postgres:5432/unkittered
-      DB_USERNAME: unkittered
-      DB_PASSWORD: unkittered
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      AWS_SQS_ENDPOINT: http://localstack:4566
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
 volumes:
   pgdata:

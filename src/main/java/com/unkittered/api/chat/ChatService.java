@@ -21,7 +21,9 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.StreamSupport;
 
 /** Matches and 1:1 conversations for the signed-in user. */
 @Service
@@ -50,28 +52,52 @@ public class ChatService {
 
     @Transactional(readOnly = true)
     public List<MatchDto> matchesFor(UUID viewerId) {
-        return matches.findAllForUser(viewerId).stream()
+        List<Match> userMatches = matches.findAllForUser(viewerId);
+        if (userMatches.isEmpty()) return List.of();
+
+        Set<UUID> otherIds = userMatches.stream()
+                .map(m -> otherUserId(m, viewerId))
+                .collect(java.util.stream.Collectors.toSet());
+
+        Map<UUID, ProfileDto> byUserId = StreamSupport.stream(profiles.findAllById(otherIds).spliterator(), false)
+                .map(p -> mapper.toDto(p, null, 10.0))
+                .collect(java.util.stream.Collectors.toMap(ProfileDto::id, p -> p));
+
+        return userMatches.stream()
                 .map(m -> new MatchDto(
                         m.getId().toString(),
-                        otherProfile(m, viewerId),
+                        byUserId.get(otherUserId(m, viewerId)),
                         m.getCreatedAt()))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ConversationDto> conversationsFor(UUID viewerId) {
-        return matches.findAllForUser(viewerId).stream()
+        List<Match> userMatches = matches.findAllForUser(viewerId);
+        if (userMatches.isEmpty()) return List.of();
+
+        Set<UUID> otherIds = userMatches.stream()
+                .map(m -> otherUserId(m, viewerId))
+                .collect(java.util.stream.Collectors.toSet());
+
+        Map<UUID, ProfileDto> byUserId = StreamSupport.stream(profiles.findAllById(otherIds).spliterator(), false)
+                .map(p -> mapper.toDto(p, null, 10.0))
+                .collect(java.util.stream.Collectors.toMap(ProfileDto::id, p -> p));
+
+        Map<UUID, MessageRepository.ConversationSummary> summaries = messages.findConversationSummaries(viewerId).stream()
+                .collect(java.util.stream.Collectors.toMap(MessageRepository.ConversationSummary::getMatchId, s -> s));
+
+        return userMatches.stream()
                 .map(m -> {
-                    var last = messages.findFirstByMatchIdOrderByCreatedAtDesc(m.getId());
-                    long unread = messages.countByMatchIdAndSenderIdNotAndReadAtIsNull(m.getId(), viewerId);
+                    var summary = summaries.get(m.getId());
+                    ProfileDto profile = byUserId.get(otherUserId(m, viewerId));
                     return new ConversationDto(
                             m.getId().toString(),
-                            otherProfile(m, viewerId),
-                            last.map(Message::getBody).orElse(null),
-                            last.map(Message::getCreatedAt).orElse(m.getCreatedAt()),
-                            unread);
+                            profile,
+                            summary == null ? null : summary.getLastMessage(),
+                            summary == null ? m.getCreatedAt() : summary.getLastMessageAt(),
+                            summary == null ? 0 : summary.getUnreadCount());
                 })
-                // Most recent activity first.
                 .sorted(Comparator.comparing(ConversationDto::lastMessageAt).reversed())
                 .toList();
     }
