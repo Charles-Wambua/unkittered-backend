@@ -27,5 +27,5 @@ application-secrets.yml
 uploads/
 
 # Firebase Admin service account (secret — never commit)
-#src/main/resources/firebase-service-account.json
-#firebase-service-account*.json
+src/main/resources/firebase-service-account.json
+firebase-service-account*.json

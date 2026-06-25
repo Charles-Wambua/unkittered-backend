@@ -1,0 +1,63 @@
+# Unkittered API - Quick Reference (CSV)
+
+Method,Path,Auth,Status,Description
+POST,/v1/auth/register,No,201,Register new user
+POST,/v1/auth/login,No,200,Login with credentials
+POST,/v1/auth/oauth,No,200,OAuth login (Google/Apple/Facebook)
+POST,/v1/auth/reset-password,No,200,Reset password
+POST,/v1/auth/logout,No,204,Logout
+GET,/v1/discover,Yes,200,Get profile deck (30 profiles cached)
+POST,/v1/likes,Yes,200,Like a profile
+POST,/v1/super-likes,Yes,200,Super like a profile (premium)
+POST,/v1/passes,Yes,204,Pass on a profile
+GET,/v1/likes/received,Yes,200,Get received likes
+GET,/v1/matches,Yes,200,Get all matches
+GET,/v1/conversations,Yes,200,Get all conversations
+GET,/v1/conversations/{matchId}/messages,Yes,200,Get messages (marks read)
+POST,/v1/conversations/{matchId}/messages,Yes,200,Send message
+DELETE,/v1/matches/{matchId},Yes,204,Unmatch
+GET,/v1/me,Yes,200,Get current user
+GET,/v1/me/profile,Yes,200,Get user profile
+PUT,/v1/me/profile,Yes,200,Update profile
+POST,/v1/me/onboarding/complete,Yes,200,Complete onboarding
+POST,/v1/me/photos,Yes,200,Upload photo (multipart)
+POST,/v1/blocks,Yes,204,Block user
+DELETE,/v1/blocks/{profileId},Yes,204,Unblock user
+GET,/v1/blocks,Yes,200,Get blocked users
+POST,/v1/reports,Yes,204,Report user
+GET,/v1/subscriptions/me,Yes,200,Get subscription tier
+POST,/v1/subscriptions/boost,Yes,200,Apply boost (premium)
+POST,/v1/subscriptions/verify,Yes,200,Verify in-app purchase
+POST,/v1/subscriptions/cancel,Yes,204,Cancel subscription
+POST,/v1/devices,Yes,204,Register device token
+DELETE,/v1/devices/{token},Yes,204,Unregister device
+GET,/v1/me/notification-prefs,Yes,200,Get notification preferences
+PUT,/v1/me/notification-prefs,Yes,200,Update notification preferences
+GET,/v1/stories,Yes,200,Get story feed
+POST,/v1/me/stories,Yes,200,Create story (multipart)
+DELETE,/v1/me/stories,Yes,204,Delete story
+GET,/v1/reels,Yes,200,Get reel feed
+POST,/v1/me/reel,Yes,200,Upload reel (multipart)
+DELETE,/v1/me/reel,Yes,204,Delete reel
+GET,/v1/meetups,Yes,200,Get meetups
+POST,/v1/meetups,Yes,200,Create meetup
+POST,/v1/meetups/{id}/rsvp,Yes,200,RSVP to meetup
+DELETE,/v1/meetups/{id}/rsvp,Yes,200,Cancel RSVP
+DELETE,/v1/meetups/{id},Yes,204,Delete meetup
+POST,/v1/meetups/{id}/report,Yes,204,Report meetup
+GET,/v1/me/verification,Yes,200,Get verification status
+POST,/v1/me/verification,Yes,200,Submit verification (multipart)
+GET,/v1/admin/stats,Yes,200,Get admin stats (admin only)
+GET,/v1/admin/me,Yes,200,Check admin status
+GET,/v1/admin/verifications,Yes,200,Get pending verifications (admin)
+POST,/v1/admin/verifications/{userId}/approve,Yes,204,Approve verification (admin)
+POST,/v1/admin/verifications/{userId}/reject,Yes,204,Reject verification (admin)
+GET,/v1/admin/reports,Yes,200,Get all reports (admin)
+DELETE,/v1/admin/reports/{type}/{id},Yes,204,Dismiss report (admin)
+POST,/v1/admin/users/{id}/suspend,Yes,204,Suspend user (admin)
+POST,/v1/admin/users/{id}/unsuspend,Yes,204,Unsuspend user (admin)
+GET,/v1/admin/insights,Yes,200,Get insights (admin)
+GET,/v1/admin/live,Yes,200,Get live stats (admin)
+GET,/v1/admin/endpoints,Yes,200,List all endpoints (admin)
+GET,/v1/admin/system,Yes,200,Get system status (admin)
+WS,/ws/chat?token=<JWT>,Yes,101,WebSocket real-time chat
