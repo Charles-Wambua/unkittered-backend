@@ -1,18 +1,18 @@
 # Deploying the Unkittered API on the GCP VM
 
-The API runs on the **same Ubuntu 24.04 VM as commerce-orchestrator**, following
-its conventions (native services under systemd, nginx in front, PostgreSQL 16
+The API runs on the **same VM as commerce-orchestrator** (Debian 12, e2-medium), following
+its conventions (native services under systemd, nginx in front, PostgreSQL
 from apt, no Docker), and without touching any of its pieces:
 
 | | commerce-orchestrator (existing) | Unkittered (new) |
 |---|---|---|
 | User / home | `dp`, `/opt/dp` | `unkittered`, `/opt/unkittered` |
 | App port | 127.0.0.1:8000 | 127.0.0.1:**8081** |
-| Database | `direct_publish` on PG 16 | `unkittered` on the **same** PG 16 (own role) |
+| Database | `direct_publish` on PostgreSQL 15 | `unkittered` on the **same** server (own role) |
 | Cache | – | Redis (apt), 127.0.0.1:6379, 128 MB cap |
 | Queue | – | ElasticMQ (SQS-compatible), 127.0.0.1:9324 |
 | nginx site | `/etc/nginx/sites-available/dp` | `/etc/nginx/sites-available/unkittered` |
-| Domain | the app's domain | its own, e.g. `api.unkittered.app` |
+| Domain | `directpublish.duckdns.org` | `unkittered.directpublish.duckdns.org` (DuckDNS resolves sub-names to the same IP) |
 | Services | `dp-api`, `dp-worker`, `dp-scraper` | `unkittered-api`, `unkittered-elasticmq` |
 
 Nothing new is exposed: only nginx (80/443) faces the internet, as before.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-time setup of the Unkittered API on the existing Ubuntu 24.04 GCP VM
-# (the one already running commerce-orchestrator). Safe to re-run.
+# One-time setup of the Unkittered API on the existing GCP VM (the one already
+# running commerce-orchestrator; Debian 12 or Ubuntu 24.04). Safe to re-run.
 #
 #   sudo bash setup-vm.sh <api-domain> [deploy-ssh-user]
 #
@@ -10,9 +10,9 @@
 #
 # What it does — and does NOT touch the commerce-orchestrator ("dp") setup:
 #   * system user `unkittered`, everything under /opt/unkittered
-#   * Java 21 runtime, Maven, Redis (localhost only) from apt
+#   * JDK 21, Maven, Redis (localhost only) from apt
 #   * ElasticMQ (SQS-compatible) as unkittered-elasticmq.service on 127.0.0.1:9324
-#   * database `unkittered` + role on the existing PostgreSQL 16
+#   * database `unkittered` + role on the existing PostgreSQL
 #   * unkittered-api.service on 127.0.0.1:8081
 #   * its own nginx site for <api-domain> (+ Certbot TLS)
 #   * /usr/local/sbin/unkittered-deploy, runnable by the deploy user via sudo
@@ -32,7 +32,25 @@ say() { echo -e "\n==> $*"; }
 say "Packages"
 apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-  openjdk-21-jre-headless maven git curl redis-server postgresql-client openssl >/dev/null
+  git curl gnupg redis-server postgresql-client openssl >/dev/null
+# The deploy builds with Maven, so it needs a JDK. Ubuntu 24.04 ships
+# OpenJDK 21; Debian 12 doesn't, so use Eclipse Temurin from Adoptium there.
+if apt-cache show openjdk-21-jdk-headless &>/dev/null; then
+  JDK_PKG=openjdk-21-jdk-headless
+else
+  curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public \
+    | gpg --dearmor --yes -o /usr/share/keyrings/adoptium.gpg
+  echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo "$VERSION_CODENAME") main" \
+    > /etc/apt/sources.list.d/adoptium.list
+  apt-get update -qq
+  JDK_PKG=temurin-21-jdk
+fi
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$JDK_PKG" maven >/dev/null
+# Maven pulls in the distro's default JRE too; make sure java/javac are 21.
+update-alternatives --set java "$(update-alternatives --list java | grep 21 | head -1)" >/dev/null
+JAVAC21=$(update-alternatives --list javac 2>/dev/null | grep 21 | head -1 || true)
+[[ -n "$JAVAC21" ]] && update-alternatives --set javac "$JAVAC21" >/dev/null
+java -version 2>&1 | head -1
 
 say "System user and folders"
 id unkittered &>/dev/null || useradd --system --home-dir "$APP_HOME" --shell /usr/sbin/nologin unkittered
