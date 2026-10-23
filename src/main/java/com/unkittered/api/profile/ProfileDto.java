@@ -1,5 +1,7 @@
 package com.unkittered.api.profile;
 
+import com.unkittered.api.pet.PetDtos;
+
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.List;
@@ -32,6 +34,19 @@ public record ProfileDto(
         boolean incognito,
         String cardQuote,
         String connectionMode,
-        boolean openToFriends
+        boolean openToFriends,
+        /** Structured animals — the source of truth; {@code pets} is derived labels. */
+        List<PetDtos.PetDto> animals,
+        /** {@link PledgePath} wire value, or null. */
+        String pledgePath,
+        Instant pledgeRenewsAt,
+        /** "none" | "child_free_verified" | "sterilised_verified". */
+        String badge,
+        /** "none" | "declared" (self-reported) | "verified" (medical review). */
+        String sterilisationStatus,
+        /** Self-declared procedure wire value, or null. */
+        String sterilisationProcedure,
+        /** Only meaningful on the member's own profile. */
+        boolean paused
 ) implements Serializable {
 }

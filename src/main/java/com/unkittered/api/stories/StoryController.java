@@ -1,5 +1,6 @@
 package com.unkittered.api.stories;
 
+import com.unkittered.api.chat.MessageModeration;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.security.CurrentUser;
 import com.unkittered.api.stories.StoryDtos.StoryDto;
@@ -58,6 +59,13 @@ public class StoryController {
         }
 
         boolean hasText = text != null && !text.isBlank();
+        if (hasText) {
+            if (text.trim().length() > 220) throw ApiException.badRequest("Keep story text under 220 characters");
+            // Stories are public to matches: same kindness rule as chat.
+            if (MessageModeration.check(text, true) == MessageModeration.Flag.PROFANITY) {
+                throw ApiException.badRequest(MessageModeration.reason(MessageModeration.Flag.PROFANITY));
+            }
+        }
         if (imageUrl == null && !hasText) {
             throw ApiException.badRequest("A story needs a photo or some text");
         }

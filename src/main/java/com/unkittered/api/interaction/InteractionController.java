@@ -34,20 +34,20 @@ public class InteractionController {
         }
     }
 
-    public record MatchResult(boolean isMatch) { }
+    public record MatchResult(boolean isMatch, boolean alreadyMatched) { }
 
     @Operation(summary = "Like a profile")
     @PostMapping("/likes")
     public MatchResult like(@RequestBody TargetRequest req) {
-        boolean match = interactions.like(CurrentUser.id(), req.uuid(), false);
-        return new MatchResult(match);
+        var outcome = interactions.like(CurrentUser.id(), req.uuid(), false);
+        return new MatchResult(outcome.isMatch(), outcome.alreadyMatched());
     }
 
     @Operation(summary = "Super-like a profile")
     @PostMapping("/super-likes")
     public MatchResult superLike(@RequestBody TargetRequest req) {
-        boolean match = interactions.like(CurrentUser.id(), req.uuid(), true);
-        return new MatchResult(match);
+        var outcome = interactions.like(CurrentUser.id(), req.uuid(), true);
+        return new MatchResult(outcome.isMatch(), outcome.alreadyMatched());
     }
 
     @Operation(summary = "Pass on a profile")

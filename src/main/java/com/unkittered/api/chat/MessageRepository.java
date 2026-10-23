@@ -16,6 +16,11 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
 
     Optional<Message> findFirstByMatchIdOrderByCreatedAtDesc(UUID matchId);
 
+    /** The most recent message of a kind (e.g. the latest plan). */
+    Optional<Message> findFirstByMatchIdAndKindOrderByCreatedAtDesc(UUID matchId, String kind);
+
+    List<Message> findByMatchIdAndKindOrderByCreatedAtAsc(UUID matchId, String kind);
+
     /** Remove every message in a conversation (used by unmatch / block). */
     void deleteByMatchId(UUID matchId);
 

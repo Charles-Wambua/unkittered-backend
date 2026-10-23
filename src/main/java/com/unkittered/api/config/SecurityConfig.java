@@ -21,6 +21,7 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC = {
             "/v1/auth/**",
+            "/v1/payments/mpesa/**", // M-Pesa callbacks; authenticated by a secret path token
             "/ws/**",            // WS handshake authenticates via ?token= (see AuthHandshakeInterceptor)
             "/files/**",         // publicly-served uploaded images (no token; <img>/cache can't send one)
             "/swagger-ui/**",
@@ -47,6 +48,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC).permitAll()
                         .anyRequest().authenticated())
+                // Missing or invalid token → 401, so clients know to sign in again
+                // (Spring's default here is 403, which apps treat as "not allowed").
+                .exceptionHandling(e -> e.authenticationEntryPoint(
+                        new org.springframework.security.web.authentication.HttpStatusEntryPoint(
+                                org.springframework.http.HttpStatus.UNAUTHORIZED)))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

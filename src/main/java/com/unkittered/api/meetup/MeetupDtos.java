@@ -1,5 +1,7 @@
 package com.unkittered.api.meetup;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -25,17 +27,33 @@ public final class MeetupDtos {
             List<String> attendeeAvatars,
             String description,
             boolean joined,
-            boolean hosting) {
+            boolean hosting,
+            MeetupEnums.Kind kind,
+            MeetupEnums.PetPolicy petPolicy,
+            int durationMinutes,
+            /** Attendees bringing a pet. */
+            long petCount,
+            /** Whether the viewer RSVP'd with their pet. */
+            boolean bringingPet) {
     }
 
     /** Create payload. Extra client fields (hostName, joined, …) are ignored. */
     public record CreateMeetupRequest(
             @NotBlank @Size(max = 120) String title,
-            @NotBlank String category,
+            /** Legacy free text; derived from {@code kind} when omitted. */
+            String category,
             @NotBlank @Size(max = 60) String area,
             String venue,
             Instant startsAt,
             int capacity,
-            @Size(max = 1000) String description) {
+            @Size(max = 1000) String description,
+            MeetupEnums.Kind kind,
+            MeetupEnums.PetPolicy petPolicy,
+            @Min(15) @Max(1440) Integer durationMinutes) {
+    }
+
+    /** Optional RSVP body. */
+    public record RsvpRequest(Boolean withPet) {
+        public boolean bringingPet() { return Boolean.TRUE.equals(withPet); }
     }
 }

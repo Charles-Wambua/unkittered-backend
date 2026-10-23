@@ -1,0 +1,26 @@
+[Unit]
+Description=Unkittered API (Spring Boot)
+After=network.target postgresql.service redis-server.service unkittered-elasticmq.service
+Wants=redis-server.service unkittered-elasticmq.service
+
+[Service]
+User=unkittered
+Group=unkittered
+WorkingDirectory=/opt/unkittered
+EnvironmentFile=/opt/unkittered/unkittered.env
+ExecStart=/bin/sh -c 'exec /usr/bin/java $JAVA_OPTS -jar /opt/unkittered/unkittered-api.jar'
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+# Spring Boot + Flyway take a while on first boot.
+TimeoutStartSec=120
+
+# Hardening: the app only needs to write its uploads.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/unkittered/uploads
+
+[Install]
+WantedBy=multi-user.target

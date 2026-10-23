@@ -13,9 +13,11 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordReset;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, PasswordResetService passwordReset) {
         this.authService = authService;
+        this.passwordReset = passwordReset;
     }
 
     @Operation(summary = "Register a new account")
@@ -31,13 +33,20 @@ public class AuthController {
         return authService.login(req);
     }
 
-    @Operation(summary = "Sign in / sign up with a social provider")
+    @Operation(summary = "Sign in / sign up with a verified Google or Apple ID token")
     @PostMapping("/oauth")
     public AuthResponse oauth(@Valid @RequestBody OAuthRequest req) {
         return authService.oauth(req);
     }
 
-    @Operation(summary = "Reset password by setting a new one")
+    @Operation(summary = "Email a 6-digit reset code (always 202, whether or not the email exists)")
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        passwordReset.requestCode(req.email());
+    }
+
+    @Operation(summary = "Set a new password using the emailed code, then sign in")
     @PostMapping("/reset-password")
     public AuthResponse resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
         return authService.resetPassword(req);

@@ -5,6 +5,7 @@ import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileRepository;
 import com.unkittered.api.user.User;
 import com.unkittered.api.user.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,8 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.UUID;
 
 /** Resolves and persists the user's membership tier, and applies Boosts. */
@@ -26,12 +25,15 @@ public class SubscriptionService {
     private final UserRepository users;
     private final ProfileRepository profiles;
     private final RedisTemplate<String, Object> redis;
+    private final boolean trustClientPurchases;
 
     public SubscriptionService(UserRepository users, ProfileRepository profiles,
-                               RedisTemplate<String, Object> redis) {
+                               RedisTemplate<String, Object> redis,
+                               @Value("${unkittered.billing.trust-client:false}") boolean trustClientPurchases) {
         this.users = users;
         this.profiles = profiles;
         this.redis = redis;
+        this.trustClientPurchases = trustClientPurchases;
     }
 
     /** Result of a Boost: when it lasts until, and how many remain this month. */
@@ -46,17 +48,12 @@ public class SubscriptionService {
         User user = requireUser(userId);
         String tier = user.getSubscriptionTier() == null
                 ? "free" : user.getSubscriptionTier().toLowerCase();
-        int limit = switch (tier) {
-            case "gold" -> 5;
-            case "plus" -> 1;
-            default -> 0;
-        };
+        int limit = Allowances.monthlyBoosts(tier);
         if (limit == 0) {
             throw new ApiException(HttpStatus.FORBIDDEN,
                     "Boosts are a Plus & Gold perk. Upgrade to be the top profile in your area.");
         }
-        LocalDate now = LocalDate.now(ZoneOffset.UTC);
-        String key = "boosts:monthly:" + userId + ":" + now.getYear() + "-" + now.getMonthValue();
+        String key = Allowances.monthlyBoostsKey(userId);
         Long count = redis.opsForValue().increment(key);
         if (count != null && count == 1L) {
             redis.expire(key, Duration.ofDays(32));
@@ -74,6 +71,24 @@ public class SubscriptionService {
         return new BoostResult(until, remaining);
     }
 
+    /** What the member has left right now (read-only: spends nothing). */
+    public record Allowance(String tier, Integer wagsLeftToday, int petNotesLeftThisWeek,
+                            int boostsLeftThisMonth) { }
+
+    @Transactional(readOnly = true)
+    public Allowance allowanceOf(UUID userId) {
+        String tier = Allowances.normalise(requireUser(userId).getSubscriptionTier());
+        Integer daily = Allowances.dailyLikes(tier);
+        var values = redis.opsForValue();
+        return new Allowance(
+                tier,
+                daily == null ? null : Allowances.left(daily, values.get(Allowances.dailyLikesKey(userId))),
+                Allowances.left(Allowances.weeklySuperLikes(tier),
+                        values.get(Allowances.weeklySuperLikesKey(userId))),
+                Allowances.left(Allowances.monthlyBoosts(tier),
+                        values.get(Allowances.monthlyBoostsKey(userId))));
+    }
+
     @Transactional(readOnly = true)
     public String tierOf(UUID userId) {
         return requireUser(userId).getSubscriptionTier();
@@ -87,6 +102,12 @@ public class SubscriptionService {
      */
     @Transactional
     public String verifyAndActivate(UUID userId, String productId) {
+        // There's no App Store / Play receipt validation yet, so a bare product
+        // id proves nothing. Only trust it where explicitly allowed (local dev).
+        if (!trustClientPurchases) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "In-app purchases aren't available yet. Please try again later.");
+        }
         String tier = tierFromProductId(productId);
         if ("free".equals(tier)) {
             throw ApiException.badRequest("Unrecognised product: " + productId);

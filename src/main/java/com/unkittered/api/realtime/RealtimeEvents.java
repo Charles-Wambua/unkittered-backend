@@ -3,6 +3,7 @@ package com.unkittered.api.realtime;
 import com.unkittered.api.chat.Message;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /** JSON payloads pushed to clients over the WebSocket. */
@@ -20,7 +21,9 @@ public final class RealtimeEvents {
             String id,
             String senderId,
             String text,
-            Instant createdAt) {
+            Instant createdAt,
+            String kind,
+            Map<String, Object> payload) {
 
         public static MessagePush of(Message m) {
             return new MessagePush(
@@ -29,7 +32,9 @@ public final class RealtimeEvents {
                     m.getId().toString(),
                     m.getSenderId().toString(),
                     m.getBody(),
-                    m.getCreatedAt());
+                    m.getCreatedAt(),
+                    m.getKind(),
+                    m.getPayload());
         }
     }
 

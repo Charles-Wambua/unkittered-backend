@@ -18,13 +18,20 @@ public class AuthService {
     private final ProfileRepository profiles;
     private final PasswordEncoder encoder;
     private final JwtService jwt;
+    private final PasswordResetService passwordReset;
+    private final IdTokenVerifier idTokens;
+    private final UserIdentityRepository identities;
 
     public AuthService(UserRepository users, ProfileRepository profiles,
-                       PasswordEncoder encoder, JwtService jwt) {
+                       PasswordEncoder encoder, JwtService jwt, PasswordResetService passwordReset,
+                       IdTokenVerifier idTokens, UserIdentityRepository identities) {
         this.users = users;
         this.profiles = profiles;
         this.encoder = encoder;
         this.jwt = jwt;
+        this.passwordReset = passwordReset;
+        this.idTokens = idTokens;
+        this.identities = identities;
     }
 
     @Transactional
@@ -62,39 +69,48 @@ public class AuthService {
         return toResponse(user);
     }
 
-    /**
-     * Set a new password for the account with the given email, then sign in.
-     * SECURITY: this MVP trusts the request — add email/OTP verification before
-     * production so it can't be used to take over accounts.
-     */
-    @Transactional
+    /** Forgot-password step 2: verify the code, set the password, sign in. */
     public AuthResponse resetPassword(ResetPasswordRequest req) {
-        String email = req.email().trim().toLowerCase();
-        User user = users.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> ApiException.notFound("No account with that email"));
-        user.setPasswordHash(encoder.encode(req.newPassword()));
-        users.save(user);
-        return toResponse(user);
+        return toResponse(passwordReset.reset(req.email(), req.code(), req.newPassword()));
     }
 
     /**
-     * Social sign-in. With no real identity provider wired up yet, this
-     * provisions a fresh passwordless account each time and drops the user into
-     * onboarding — exercising the full social flow end-to-end. When a real OIDC
-     * provider is integrated, look the user up by verified provider id instead.
+     * Google / Apple sign-in. The ID token is verified first; the account is
+     * then found by the provider's stable subject id, or linked to an existing
+     * account with the same provider-verified email, or created.
      */
     @Transactional
     public AuthResponse oauth(OAuthRequest req) {
-        // provider (req.provider()) is informational until a real OIDC flow lands.
-        User user = new User();
-        user.setDisplayName("");
-        user.setOnboardingComplete(false);
-        user = users.save(user);
+        var identity = idTokens.verify(req.provider(), req.idToken());
 
-        Profile profile = new Profile();
-        profile.setUserId(user.getId());
-        profiles.save(profile);
+        var linked = identities.findByProviderAndSubject(identity.provider(), identity.subject());
+        if (linked.isPresent()) {
+            User user = users.findById(linked.get().getUserId())
+                    .orElseThrow(() -> ApiException.unauthorized("Account not found"));
+            return toResponse(user);
+        }
 
+        String email = identity.email() == null ? null : identity.email().trim().toLowerCase();
+        User user = (email != null && identity.emailVerified())
+                ? users.findByEmailIgnoreCase(email).orElse(null)
+                : null;
+        if (user == null) {
+            user = new User();
+            // Only claim the email if it's verified and nobody else has it.
+            if (email != null && identity.emailVerified() && !users.existsByEmailIgnoreCase(email)) {
+                user.setEmail(email);
+            }
+            String name = req.displayName() == null ? "" : req.displayName().trim();
+            user.setDisplayName(name);
+            user.setOnboardingComplete(false);
+            user = users.save(user);
+
+            Profile profile = new Profile();
+            profile.setUserId(user.getId());
+            profile.setName(name);
+            profiles.save(profile);
+        }
+        identities.save(new UserIdentity(identity.provider(), identity.subject(), user.getId(), email));
         return toResponse(user);
     }
 

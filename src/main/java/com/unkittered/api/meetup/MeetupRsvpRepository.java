@@ -7,6 +7,10 @@ import java.util.UUID;
 
 public interface MeetupRsvpRepository extends JpaRepository<MeetupRsvp, UUID> {
     long countByMeetupId(UUID meetupId);
+    java.util.Optional<MeetupRsvp> findByMeetupIdAndUserId(UUID meetupId, UUID userId);
+
+    long countByMeetupIdAndWithPetTrue(UUID meetupId);
+
     boolean existsByMeetupIdAndUserId(UUID meetupId, UUID userId);
     List<MeetupRsvp> findByMeetupId(UUID meetupId);
     List<MeetupRsvp> findByMeetupIdAndReminded24hFalse(UUID meetupId);

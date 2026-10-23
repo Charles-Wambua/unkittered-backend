@@ -1,0 +1,19 @@
+[Unit]
+Description=ElasticMQ (SQS-compatible queue) for Unkittered
+After=network.target
+
+[Service]
+User=unkittered
+Group=unkittered
+WorkingDirectory=/opt/unkittered/elasticmq
+ExecStart=/usr/bin/java -Xmx96m -Dconfig.file=/opt/unkittered/elasticmq/elasticmq.conf -jar /opt/unkittered/elasticmq/elasticmq-server.jar
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

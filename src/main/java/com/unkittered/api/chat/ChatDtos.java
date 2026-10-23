@@ -1,10 +1,10 @@
 package com.unkittered.api.chat;
 
 import com.unkittered.api.profile.ProfileDto;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.util.Map;
 
 /** Wire payloads for matches and conversations. */
 public final class ChatDtos {
@@ -24,7 +24,13 @@ public final class ChatDtos {
             ProfileDto profile,
             String lastMessage,
             Instant lastMessageAt,
-            long unreadCount) {
+            long unreadCount,
+            /** Kind of the latest message, so the list can render a preview. */
+            RichMessages.Kind lastMessageKind,
+            /** The most recent date plan in this chat (plan payload), or null. */
+            Map<String, Object> plan,
+            /** "proposed" | "accepted" | "declined", or null without a plan. */
+            String planStatus) {
     }
 
     /** A single chat message. {@code isMe} is true when the viewer is the sender. */
@@ -33,7 +39,9 @@ public final class ChatDtos {
             boolean isMe,
             String text,
             Instant createdAt,
-            boolean read) {
+            boolean read,
+            RichMessages.Kind kind,
+            Map<String, Object> payload) {
 
         public static MessageDto from(Message m, java.util.UUID viewerId) {
             return new MessageDto(
@@ -41,11 +49,20 @@ public final class ChatDtos {
                     m.getSenderId().equals(viewerId),
                     m.getBody(),
                     m.getCreatedAt(),
-                    m.getReadAt() != null);
+                    m.getReadAt() != null,
+                    RichMessages.Kind.fromWire(m.getKind()),
+                    m.getPayload());
         }
     }
 
+    /**
+     * Send a message. Plain text needs only {@code text}; other kinds put their
+     * fields in {@code payload} (see {@link RichMessages}).
+     */
     public record SendMessageRequest(
-            @NotBlank @Size(max = 4000) String text) {
+            @Size(max = 4000) String text,
+            RichMessages.Kind kind,
+            Map<String, Object> payload) {
+        public RichMessages.Kind kindOrText() { return kind == null ? RichMessages.Kind.TEXT : kind; }
     }
 }

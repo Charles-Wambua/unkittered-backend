@@ -45,6 +45,25 @@ public class Profile {
     @Column(name = "child_free_statement", nullable = false)
     private String childFreeStatement = "Intentionally child-free";
 
+    /** {@link PledgePath} wire value; null until the member takes the pledge. */
+    @Column(name = "pledge_path")
+    private String pledgePath;
+
+    @Column(name = "pledged_at")
+    private Instant pledgedAt;
+
+    /** Hidden from every deck while true (the member can still chat). */
+    @Column(nullable = false)
+    private boolean paused = false;
+
+    /** Self-declared procedure; null = not declared. */
+    @Column(name = "sterilisation_procedure")
+    private String sterilisationProcedure;
+
+    /** Set only by an admin after reviewing medical proof. */
+    @Column(name = "sterilisation_verified", nullable = false)
+    private boolean sterilisationVerified = false;
+
     @Column(name = "card_quote", nullable = false)
     private String cardQuote = "";
 
@@ -132,6 +151,23 @@ public class Profile {
     public void setEducation(String education) { this.education = education; }
     public String getChildFreeStatement() { return childFreeStatement; }
     public void setChildFreeStatement(String childFreeStatement) { this.childFreeStatement = childFreeStatement; }
+    public String getPledgePath() { return pledgePath; }
+    public void setPledgePath(String pledgePath) { this.pledgePath = pledgePath; }
+    public Instant getPledgedAt() { return pledgedAt; }
+    public void setPledgedAt(Instant pledgedAt) { this.pledgedAt = pledgedAt; }
+    public boolean isPaused() { return paused; }
+    public void setPaused(boolean paused) { this.paused = paused; }
+    public String getSterilisationProcedure() { return sterilisationProcedure; }
+    public void setSterilisationProcedure(String p) { this.sterilisationProcedure = p; }
+    public boolean isSterilisationVerified() { return sterilisationVerified; }
+    public void setSterilisationVerified(boolean v) { this.sterilisationVerified = v; }
+
+    /** Sterilised by the member's own account (pledge or procedure) or by review. */
+    public boolean isSterilisationDeclared() {
+        return sterilisationVerified || sterilisationProcedure != null
+                || PledgePath.STERILISED.wire().equals(pledgePath);
+    }
+
     public String getCardQuote() { return cardQuote; }
     public void setCardQuote(String cardQuote) { this.cardQuote = cardQuote; }
     public boolean isOnline() { return online; }

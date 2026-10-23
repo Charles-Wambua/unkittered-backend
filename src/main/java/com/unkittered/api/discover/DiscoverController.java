@@ -24,6 +24,12 @@ public class DiscoverController {
         this.discoverService = discoverService;
     }
 
+    @Operation(summary = "People nearby on a map, at blurred (~2 km) positions")
+    @GetMapping("/map")
+    public DiscoverService.MapView map() {
+        return discoverService.map(CurrentUser.id());
+    }
+
     @Operation(summary = "Get the discover deck for the current user")
     @GetMapping
     public Map<String, List<ProfileDto>> discover() {

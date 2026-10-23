@@ -5,6 +5,7 @@ import com.unkittered.api.meetup.MeetupDtos.CreateMeetupRequest;
 import com.unkittered.api.meetup.MeetupDtos.MeetupDto;
 import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileRepository;
+import com.unkittered.api.subscription.SubscriptionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,9 +24,12 @@ public class MeetupService {
     private final MeetupRsvpRepository rsvps;
     private final MeetupReportRepository reports;
     private final ProfileRepository profiles;
+    private final SubscriptionService subscriptions;
 
     public MeetupService(MeetupRepository meetups, MeetupRsvpRepository rsvps,
-                         MeetupReportRepository reports, ProfileRepository profiles) {
+                         MeetupReportRepository reports, ProfileRepository profiles,
+                         SubscriptionService subscriptions) {
+        this.subscriptions = subscriptions;
         this.meetups = meetups;
         this.rsvps = rsvps;
         this.reports = reports;
@@ -65,26 +69,42 @@ public class MeetupService {
 
     @Transactional
     public MeetupDto create(UUID hostId, CreateMeetupRequest req) {
-        Meetup saved = meetups.save(new Meetup(
-                hostId, req.title(), req.category(), req.area(),
-                req.venue(), req.startsAt(), req.capacity(), req.description()));
+        MeetupEnums.Kind kind = req.kind() != null ? req.kind() : MeetupEnums.Kind.CAFE;
+        MeetupEnums.PetPolicy policy = req.petPolicy() != null ? req.petPolicy() : MeetupEnums.PetPolicy.PETS_WELCOME;
+        String category = req.category() == null || req.category().isBlank() ? kind.label() : req.category();
+        Meetup m = new Meetup(
+                hostId, req.title(), category, req.area(),
+                req.venue(), req.startsAt(), req.capacity(), req.description());
+        m.setKind(kind.wire());
+        m.setPetPolicy(policy.wire());
+        if (req.durationMinutes() != null) m.setDurationMinutes(req.durationMinutes());
+        Meetup saved = meetups.save(m);
         // The host is automatically attending.
         rsvps.save(new MeetupRsvp(saved.getId(), hostId));
         return toDto(saved, hostId);
     }
 
+    /**
+     * Join or leave. A full meetup is closed to everyone except Gold members,
+     * who "skip the waitlist". Pets only come along when the policy allows.
+     */
     @Transactional
-    public MeetupDto rsvp(UUID meetupId, UUID userId, boolean joining) {
+    public MeetupDto rsvp(UUID meetupId, UUID userId, boolean joining, boolean withPet) {
         Meetup m = meetups.findById(meetupId)
                 .orElseThrow(() -> ApiException.notFound("Meetup not found"));
         if (joining) {
-            if (m.getCapacity() > 0
-                    && rsvps.countByMeetupId(meetupId) >= m.getCapacity()
-                    && !rsvps.existsByMeetupIdAndUserId(meetupId, userId)) {
-                throw ApiException.badRequest("This meetup is fully booked");
-            }
-            if (!rsvps.existsByMeetupIdAndUserId(meetupId, userId)) {
-                rsvps.save(new MeetupRsvp(meetupId, userId));
+            boolean bringPet = withPet && MeetupEnums.PetPolicy.fromWire(m.getPetPolicy()).allowsPets();
+            var existing = rsvps.findByMeetupIdAndUserId(meetupId, userId);
+            if (existing.isPresent()) {
+                existing.get().setWithPet(bringPet);
+            } else {
+                boolean full = m.getCapacity() > 0 && rsvps.countByMeetupId(meetupId) >= m.getCapacity();
+                if (full && !"gold".equalsIgnoreCase(subscriptions.tierOf(userId))) {
+                    throw ApiException.conflict("This pack is full. Gold members skip the waitlist.");
+                }
+                MeetupRsvp r = new MeetupRsvp(meetupId, userId);
+                r.setWithPet(bringPet);
+                rsvps.save(r);
             }
         } else {
             rsvps.deleteByMeetupIdAndUserId(meetupId, userId);
@@ -117,12 +137,23 @@ public class MeetupService {
                 avatars,
                 m.getDescription(),
                 rsvps.existsByMeetupIdAndUserId(m.getId(), viewerId),
-                m.getHostId().equals(viewerId));
+                m.getHostId().equals(viewerId),
+                MeetupEnums.Kind.fromWire(m.getKind()),
+                MeetupEnums.PetPolicy.fromWire(m.getPetPolicy()),
+                m.getDurationMinutes(),
+                rsvps.countByMeetupIdAndWithPetTrue(m.getId()),
+                rsvps.findByMeetupIdAndUserId(m.getId(), viewerId).map(MeetupRsvp::isWithPet).orElse(false));
     }
 
-    /** A ring emoji for a user: their first pet token, else a paw. */
+    /**
+     * A user's face for the host row and attendee strip: their photo path,
+     * else (no photo yet) their first pet emoji, else a paw.
+     */
     private String avatarFor(UUID userId) {
         return profiles.findById(userId).map(p -> {
+            if (p.getImageUrl() != null && !p.getImageUrl().isBlank()) {
+                return p.getImageUrl();
+            }
             List<String> pets = p.getPets();
             if (pets != null && !pets.isEmpty()) {
                 String first = pets.get(0).trim();

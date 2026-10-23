@@ -55,6 +55,35 @@ spring.cloud.aws:
     endpoint: ${AWS_SQS_ENDPOINT:http://localstack:4566}
 
 unkittered:
+  auth:
+    # Log password-reset codes (local development only: no email sender yet).
+    log-reset-codes: ${UNKITTERED_LOG_RESET_CODES:false}
+  mpesa:
+    # disabled | dev (LOCAL ONLY: payments "succeed" with no money moving) | daraja
+    mode: ${UNKITTERED_MPESA_MODE:disabled}
+    base-url: ${UNKITTERED_MPESA_BASE_URL:https://sandbox.safaricom.co.ke}
+    consumer-key: ${UNKITTERED_MPESA_CONSUMER_KEY:}
+    consumer-secret: ${UNKITTERED_MPESA_CONSUMER_SECRET:}
+    shortcode: ${UNKITTERED_MPESA_SHORTCODE:}
+    passkey: ${UNKITTERED_MPESA_PASSKEY:}
+    # Public https base Safaricom can reach, e.g. https://api.unkittered.app
+    callback-base-url: ${UNKITTERED_MPESA_CALLBACK_BASE_URL:}
+    # Long random secret; it becomes part of the callback URLs.
+    callback-token: ${UNKITTERED_MPESA_CALLBACK_TOKEN:}
+    b2c-shortcode: ${UNKITTERED_MPESA_B2C_SHORTCODE:}
+    initiator-name: ${UNKITTERED_MPESA_INITIATOR_NAME:}
+    security-credential: ${UNKITTERED_MPESA_SECURITY_CREDENTIAL:}
+  billing:
+    # Activate tiers from a bare product id, with no store receipt check.
+    # LOCAL TESTING ONLY: real App Store / Play validation must replace this.
+    trust-client: ${UNKITTERED_BILLING_TRUST_CLIENT:false}
+  oauth:
+    # Comma-separated OAuth client ids whose ID tokens we accept. Empty means
+    # that provider is switched off (the endpoint answers 503).
+    google:
+      client-ids: ${UNKITTERED_GOOGLE_CLIENT_IDS:}
+    apple:
+      client-ids: ${UNKITTERED_APPLE_CLIENT_IDS:}
   jwt:
     # Override in production via UNKITTERED_JWT_SECRET. Must be >= 32 bytes.
     secret: ${UNKITTERED_JWT_SECRET:dev-only-change-me-please-32bytes-minimum-secret}

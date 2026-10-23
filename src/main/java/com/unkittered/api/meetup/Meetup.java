@@ -37,6 +37,17 @@ public class Meetup {
     @Column(nullable = false)
     private String description = "";
 
+    /** {@link MeetupEnums.Kind} wire value. */
+    @Column(nullable = false)
+    private String kind = "cafe";
+
+    /** {@link MeetupEnums.PetPolicy} wire value. */
+    @Column(name = "pet_policy", nullable = false)
+    private String petPolicy = "pets_welcome";
+
+    @Column(name = "duration_minutes", nullable = false)
+    private int durationMinutes = 120;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -54,6 +65,12 @@ public class Meetup {
         this.description = description == null ? "" : description;
     }
 
+    public String getKind() { return kind; }
+    public void setKind(String kind) { this.kind = kind; }
+    public String getPetPolicy() { return petPolicy; }
+    public void setPetPolicy(String petPolicy) { this.petPolicy = petPolicy; }
+    public int getDurationMinutes() { return durationMinutes; }
+    public void setDurationMinutes(int durationMinutes) { this.durationMinutes = durationMinutes; }
     public UUID getId() { return id; }
     public UUID getHostId() { return hostId; }
     public String getTitle() { return title; }

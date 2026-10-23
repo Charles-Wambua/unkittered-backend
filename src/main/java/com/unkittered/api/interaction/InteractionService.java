@@ -1,12 +1,14 @@
 package com.unkittered.api.interaction;
 
 import com.unkittered.api.common.ApiException;
+import com.unkittered.api.subscription.Allowances;
 import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.messaging.MatchCreatedEvent;
 import com.unkittered.api.messaging.MatchEventPublisher;
 import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
+import com.unkittered.api.realtime.RealtimeGateway;
 import com.unkittered.api.user.User;
 import com.unkittered.api.user.UserRepository;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -15,17 +17,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.temporal.WeekFields;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class InteractionService {
 
     /** Free-tier daily like allowance (mirrors the Flutter Entitlements). */
-    private static final int FREE_DAILY_LIKES = 15;
 
     private final LikeRepository likes;
     private final PassRepository passes;
@@ -36,11 +35,12 @@ public class InteractionService {
     private final MatchEventPublisher matchPublisher;
     private final DiscoverService discoverService;
     private final RedisTemplate<String, Object> redis;
+    private final RealtimeGateway realtime;
 
     public InteractionService(LikeRepository likes, PassRepository passes, MatchRepository matches,
                               UserRepository users, ProfileRepository profiles, ProfileMapper mapper,
                               MatchEventPublisher matchPublisher, DiscoverService discoverService,
-                              RedisTemplate<String, Object> redis) {
+                              RedisTemplate<String, Object> redis, RealtimeGateway realtime) {
         this.likes = likes;
         this.passes = passes;
         this.matches = matches;
@@ -50,15 +50,26 @@ public class InteractionService {
         this.matchPublisher = matchPublisher;
         this.discoverService = discoverService;
         this.redis = redis;
+        this.realtime = realtime;
     }
 
-    /** Records a (super)like. Returns true if it produced a mutual match. */
-    @Transactional
-    public boolean like(UUID likerId, UUID likeeId, boolean superLike) {
-        validateTarget(likerId, likeeId);
-        enforceDailyLimit(likerId, superLike);
+    /** The result of a (super)like. */
+    public record LikeOutcome(boolean isMatch, boolean alreadyMatched) { }
 
-        if (!likes.existsByLikerIdAndLikeeId(likerId, likeeId)) {
+    /**
+     * Records a (super)like. Wagging someone you already liked or matched
+     * with (say, from their reel) is a no-op and costs nothing.
+     */
+    @Transactional
+    public LikeOutcome like(UUID likerId, UUID likeeId, boolean superLike) {
+        validateTarget(likerId, likeeId);
+        if (matches.existsByUserLowAndUserHigh(Match.low(likerId, likeeId), Match.high(likerId, likeeId))) {
+            return new LikeOutcome(true, true);
+        }
+
+        boolean fresh = !likes.existsByLikerIdAndLikeeId(likerId, likeeId);
+        if (fresh) {
+            enforceDailyLimit(likerId, superLike);
             likes.save(new Like(likerId, likeeId, superLike));
         }
 
@@ -66,10 +77,14 @@ public class InteractionService {
         // Mutual like? The other person already liked us.
         if (likes.existsByLikerIdAndLikeeId(likeeId, likerId)) {
             isMatch = createMatchIfAbsent(likerId, likeeId, superLike);
+        } else if (fresh) {
+            // A bare ping so the "N wagged at you" count updates live. It names
+            // nobody: who it was stays behind the who-wagged entitlement.
+            realtime.sendToUser(likeeId, Map.of("type", "wag"));
         }
 
         discoverService.evict(likerId);
-        return isMatch;
+        return new LikeOutcome(isMatch, false);
     }
 
     @Transactional
@@ -82,9 +97,17 @@ public class InteractionService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Who liked the viewer. Members whose tier includes it get real profiles;
+     * everyone else gets anonymous teasers, so nothing identifying is ever sent
+     * just to be blurred on the phone.
+     */
     public List<ProfileDto> whoLikedMe(UUID viewerId) {
+        boolean entitled = users.findById(viewerId)
+                .map(u -> Allowances.seesWhoLiked(u.getSubscriptionTier()))
+                .orElse(false);
         return profiles.findWhoLiked(viewerId).stream()
-                .map(p -> mapper.toDto(p, null, 10.0))
+                .map(p -> entitled ? mapper.toDto(p, null, 10.0) : mapper.teaser(p))
                 .toList();
     }
 
@@ -130,13 +153,12 @@ public class InteractionService {
         if (!"free".equals(tier)) {
             return; // paid tiers have unlimited likes
         }
-        String day = LocalDate.now(ZoneOffset.UTC).toString();
-        String key = "likes:daily:" + likerId + ":" + day;
+        String key = Allowances.dailyLikesKey(likerId);
         Long count = redis.opsForValue().increment(key);
         if (count != null && count == 1L) {
             redis.expire(key, Duration.ofDays(2));
         }
-        if (count != null && count > FREE_DAILY_LIKES) {
+        if (count != null && count > Allowances.FREE_DAILY_LIKES) {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                     "Daily like limit reached. Upgrade to Unkittered Plus for unlimited likes.");
         }
@@ -144,15 +166,8 @@ public class InteractionService {
 
     /** Weekly super-like allowance: free 1, Plus 5, Gold 10. */
     private void enforceSuperLikeWeekly(UUID likerId, String tier) {
-        int limit = switch (tier) {
-            case "gold" -> 10;
-            case "plus" -> 5;
-            default -> 1;
-        };
-        LocalDate now = LocalDate.now(ZoneOffset.UTC);
-        int week = now.get(WeekFields.ISO.weekOfWeekBasedYear());
-        int year = now.get(WeekFields.ISO.weekBasedYear());
-        String key = "superlikes:weekly:" + likerId + ":" + year + "-" + week;
+        int limit = Allowances.weeklySuperLikes(tier);
+        String key = Allowances.weeklySuperLikesKey(likerId);
         Long count = redis.opsForValue().increment(key);
         if (count != null && count == 1L) {
             redis.expire(key, Duration.ofDays(8));

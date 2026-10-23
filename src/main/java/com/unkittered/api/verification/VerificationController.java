@@ -23,16 +23,43 @@ public class VerificationController {
 
     private final VerificationService verification;
     private final StorageService storage;
+    private final SterilisationService sterilisation;
+    private final VouchService vouches;
 
-    public VerificationController(VerificationService verification, StorageService storage) {
+    public VerificationController(VerificationService verification, StorageService storage,
+                                  SterilisationService sterilisation, VouchService vouches) {
         this.verification = verification;
         this.storage = storage;
+        this.sterilisation = sterilisation;
+        this.vouches = vouches;
     }
 
-    @Operation(summary = "Current verification status: none | pending | verified | rejected")
+    @Operation(summary = "Identity (selfie) and sterilisation-proof status, each "
+            + "none | pending | verified | rejected; vouchStatus is none | verified")
     @GetMapping
     public Map<String, String> status() {
-        return Map.of("status", verification.statusFor(CurrentUser.id()));
+        UUID me = CurrentUser.id();
+        return Map.of(
+                "status", verification.statusFor(me),
+                "sterilisationStatus", sterilisation.statusFor(me),
+                "vouchStatus", vouches.statusFor(me));
+    }
+
+    @Operation(summary = "Submit sterilisation proof (image or PDF) for human review")
+    @PostMapping(value = "/sterilisation", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, String> submitSterilisation(@RequestParam("file") MultipartFile file) {
+        UUID userId = CurrentUser.id();
+        if (file == null || file.isEmpty()) throw ApiException.badRequest("No document provided");
+        String type = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
+        if (!type.startsWith("image/") && !type.equals("application/pdf")) {
+            throw ApiException.badRequest("Proof must be an image or a PDF");
+        }
+        try {
+            String url = storage.store(file.getBytes(), type, file.getOriginalFilename());
+            return Map.of("sterilisationStatus", sterilisation.submit(userId, url));
+        } catch (IOException e) {
+            throw ApiException.badRequest("Could not read the uploaded file");
+        }
     }
 
     @Operation(summary = "Submit a selfie for verification review")

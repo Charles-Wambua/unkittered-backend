@@ -3,7 +3,9 @@ package com.unkittered.api.chat;
 import com.unkittered.api.chat.ChatDtos.ConversationDto;
 import com.unkittered.api.chat.ChatDtos.MatchDto;
 import com.unkittered.api.chat.ChatDtos.MessageDto;
+import com.unkittered.api.chat.ChatDtos.SendMessageRequest;
 import com.unkittered.api.common.ApiException;
+import com.unkittered.api.pet.PetRepository;
 import com.unkittered.api.interaction.Match;
 import com.unkittered.api.interaction.MatchRepository;
 import com.unkittered.api.profile.Profile;
@@ -14,6 +16,7 @@ import com.unkittered.api.push.PushService;
 import com.unkittered.api.realtime.RealtimeEvents.MessagePush;
 import com.unkittered.api.realtime.RealtimeGateway;
 import com.unkittered.api.subscription.SubscriptionService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +24,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Matches and 1:1 conversations for the signed-in user. */
@@ -34,11 +38,16 @@ public class ChatService {
     private final RealtimeGateway realtime;
     private final SubscriptionService subscriptions;
     private final PushService push;
+    private final PetRepository pets;
+    /** Public base our storage serves media from (may be empty = relative URLs). */
+    private final String mediaBase;
 
     public ChatService(MatchRepository matches, MessageRepository messages,
                        ProfileRepository profiles, ProfileMapper mapper,
                        RealtimeGateway realtime, SubscriptionService subscriptions,
-                       PushService push) {
+                       PushService push, PetRepository pets,
+                       @Value("${unkittered.storage.public-base-url:}") String mediaBase) {
+        this.mediaBase = mediaBase.replaceAll("/+$", "");
         this.matches = matches;
         this.messages = messages;
         this.profiles = profiles;
@@ -46,6 +55,7 @@ public class ChatService {
         this.realtime = realtime;
         this.subscriptions = subscriptions;
         this.push = push;
+        this.pets = pets;
     }
 
     @Transactional(readOnly = true)
@@ -64,12 +74,16 @@ public class ChatService {
                 .map(m -> {
                     var last = messages.findFirstByMatchIdOrderByCreatedAtDesc(m.getId());
                     long unread = messages.countByMatchIdAndSenderIdNotAndReadAtIsNull(m.getId(), viewerId);
+                    var plan = latestPlan(m.getId());
                     return new ConversationDto(
                             m.getId().toString(),
                             otherProfile(m, viewerId),
                             last.map(Message::getBody).orElse(null),
                             last.map(Message::getCreatedAt).orElse(m.getCreatedAt()),
-                            unread);
+                            unread,
+                            last.map(msg -> RichMessages.Kind.fromWire(msg.getKind())).orElse(null),
+                            plan.map(Map.Entry::getKey).orElse(null),
+                            plan.map(Map.Entry::getValue).orElse(null));
                 })
                 // Most recent activity first.
                 .sorted(Comparator.comparing(ConversationDto::lastMessageAt).reversed())
@@ -85,18 +99,61 @@ public class ChatService {
                 .toList();
     }
 
+    /**
+     * Drops a gift into the chat between two matched members (no-op if they
+     * aren't matched). Only the wallet calls this, after charging the sender.
+     */
     @Transactional
-    public MessageDto send(UUID viewerId, UUID matchId, String text) {
+    public void postGift(UUID fromId, UUID toId, String giftId, String giftName, String emoji) {
+        matches.findByUserLowAndUserHigh(Match.low(fromId, toId), Match.high(fromId, toId)).ifPresent(match -> {
+            var prepared = new RichMessages.Prepared(RichMessages.Kind.GIFT,
+                    emoji + " Sent you a " + giftName,
+                    Map.of("giftId", giftId, "name", giftName, "emoji", emoji));
+            Message saved = messages.save(new Message(match.getId(), fromId, prepared));
+            realtime.sendToUser(toId, MessagePush.of(saved));
+        });
+    }
+
+    /** Date ideas for a match: Gold gets three, everyone else one (+ how many more). */
+    public record ConciergeResult(List<DateConcierge.Plan> plans, int more) { }
+
+    @Transactional(readOnly = true)
+    public ConciergeResult datePlans(UUID viewerId, UUID matchId) {
         Match match = requireMembership(matchId, viewerId);
+        UUID otherId = otherUserId(match, viewerId);
+        Profile me = profiles.findById(viewerId).orElseThrow(() -> ApiException.notFound("Profile not found"));
+        Profile them = profiles.findById(otherId).orElseThrow(() -> ApiException.notFound("Profile not found"));
+        boolean bothPets = !pets.findByOwnerIdOrderByPositionAsc(viewerId).isEmpty()
+                && !pets.findByOwnerIdOrderByPositionAsc(otherId).isEmpty();
+        String area = them.getLocation() != null && !them.getLocation().isBlank() ? them.getLocation() : me.getLocation();
+        var all = DateConcierge.suggest(new DateConcierge.Input(
+                them.getName() == null || them.getName().isBlank() ? "They" : them.getName(),
+                area, List.copyOf(me.getInterests()), List.copyOf(them.getInterests()), bothPets),
+                java.time.ZonedDateTime.now(DateConcierge.ZONE), 3);
+        boolean gold = "gold".equalsIgnoreCase(subscriptions.tierOf(viewerId));
+        int shown = gold ? all.size() : Math.min(1, all.size());
+        return new ConciergeResult(all.subList(0, shown), all.size() - shown);
+    }
+
+    @Transactional
+    public MessageDto send(UUID viewerId, UUID matchId, SendMessageRequest req) {
+        Match match = requireMembership(matchId, viewerId);
+        RichMessages.Prepared prepared = RichMessages.prepare(
+                req.kindOrText(), req.text(), req.payload(), viewerId,
+                planId -> findPlan(matchId, planId),
+                this::isOwnMediaUrl,
+                Instant.now());
 
         // Safety filter — reject profanity always; reject contact info unless Gold.
+        // Applies to every human-written part of the message, not just the body.
         boolean isGold = "gold".equalsIgnoreCase(subscriptions.tierOf(viewerId));
-        MessageModeration.Flag flag = MessageModeration.check(text, isGold);
-        if (flag != MessageModeration.Flag.CLEAN) {
-            throw ApiException.badRequest(MessageModeration.reason(flag));
+        for (String part : prepared.moderatedText()) {
+            MessageModeration.Flag flag = MessageModeration.check(part, isGold);
+            if (flag != MessageModeration.Flag.CLEAN) {
+                throw ApiException.badRequest(MessageModeration.reason(flag));
+            }
         }
-
-        Message saved = messages.save(new Message(matchId, viewerId, text.trim()));
+        Message saved = messages.save(new Message(matchId, viewerId, prepared));
 
         // Push the message live to the recipient's open sessions. The sender
         // already gets it as this method's HTTP response, so we skip echoing.
@@ -106,12 +163,43 @@ public class ChatService {
         // Mobile push for when their app is closed.
         String senderName = profiles.findById(viewerId).map(Profile::getName)
                 .filter(n -> !n.isBlank()).orElse("New message");
-        String preview = text.length() > 120 ? text.substring(0, 117) + "…" : text;
+        String body = saved.getBody();
+        String preview = body.length() > 120 ? body.substring(0, 117) + "…" : body;
         push.sendToUser(recipient, senderName, preview,
                 Map.of("type", "message", "matchId", matchId.toString(),
-                        "senderId", viewerId.toString()));
-
+                        "senderId", viewerId.toString(), "kind", saved.getKind()));
         return MessageDto.from(saved, viewerId);
+    }
+
+    /** A plan message in this conversation, by its payload id. */
+    private RichMessages.PlanRef findPlan(UUID matchId, String planId) {
+        return messages.findByMatchIdAndKindOrderByCreatedAtAsc(matchId, RichMessages.Kind.PLAN.wire()).stream()
+                .filter(m -> m.getPayload() != null && planId.equals(m.getPayload().get("id")))
+                .findFirst()
+                .map(m -> new RichMessages.PlanRef(m.getSenderId()))
+                .orElse(null);
+    }
+
+    /** The latest plan in a conversation and whether it was answered. */
+    private Optional<Map.Entry<Map<String, Object>, String>> latestPlan(UUID matchId) {
+        return messages.findFirstByMatchIdAndKindOrderByCreatedAtDesc(matchId, RichMessages.Kind.PLAN.wire())
+                .filter(m -> m.getPayload() != null)
+                .map(plan -> {
+                    Object id = plan.getPayload().get("id");
+                    String status = "proposed";
+                    for (Message r : messages.findByMatchIdAndKindOrderByCreatedAtAsc(
+                            matchId, RichMessages.Kind.PLAN_RESPONSE.wire())) {
+                        if (r.getPayload() != null && id.equals(r.getPayload().get("planId"))) {
+                            status = Boolean.TRUE.equals(r.getPayload().get("accepted")) ? "accepted" : "declined";
+                        }
+                    }
+                    return Map.entry(plan.getPayload(), status);
+                });
+    }
+
+    private boolean isOwnMediaUrl(String url) {
+        return !url.contains("..")
+                && (url.startsWith(mediaBase + "/files/") || url.startsWith("/files/"));
     }
 
     // ── internals ────────────────────────────────────────────────────────────

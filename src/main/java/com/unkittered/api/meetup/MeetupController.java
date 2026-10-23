@@ -41,14 +41,16 @@ public class MeetupController {
 
     @Operation(summary = "RSVP to a meetup")
     @PostMapping("/{id}/rsvp")
-    public MeetupDto join(@PathVariable String id) {
-        return meetups.rsvp(parseId(id), CurrentUser.id(), true);
+    public MeetupDto join(@PathVariable String id,
+                          @RequestBody(required = false) MeetupDtos.RsvpRequest body) {
+        boolean withPet = body != null && body.bringingPet();
+        return meetups.rsvp(parseId(id), CurrentUser.id(), true, withPet);
     }
 
     @Operation(summary = "Cancel an RSVP")
     @DeleteMapping("/{id}/rsvp")
     public MeetupDto leave(@PathVariable String id) {
-        return meetups.rsvp(parseId(id), CurrentUser.id(), false);
+        return meetups.rsvp(parseId(id), CurrentUser.id(), false, false);
     }
 
     @Operation(summary = "Host-only: cancel (delete) a meetup")

@@ -4,6 +4,7 @@ import com.unkittered.api.admin.AdminDtos.PendingVerificationDto;
 import com.unkittered.api.admin.AdminDtos.ReportDto;
 import com.unkittered.api.admin.AdminDtos.StatsDto;
 import com.unkittered.api.common.ApiException;
+import com.unkittered.api.verification.SterilisationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,9 +21,37 @@ import java.util.UUID;
 public class AdminController {
 
     private final AdminService admin;
+    private final SterilisationService sterilisation;
 
-    public AdminController(AdminService admin) {
+    public AdminController(AdminService admin, SterilisationService sterilisation) {
         this.admin = admin;
+        this.sterilisation = sterilisation;
+    }
+
+    /** A sterilisation proof awaiting review. */
+    public record PendingProofDto(String userId, String documentUrl, java.time.Instant submittedAt) { }
+
+    @Operation(summary = "Pending sterilisation proofs (gold badge)")
+    @GetMapping("/sterilisation-proofs")
+    public List<PendingProofDto> pendingSterilisationProofs() {
+        admin.requireAdmin();
+        return sterilisation.pending().stream()
+                .map(p -> new PendingProofDto(p.getUserId().toString(), p.getDocumentUrl(), p.getCreatedAt()))
+                .toList();
+    }
+
+    @Operation(summary = "Approve a sterilisation proof (grants the verified badge; clears the document)")
+    @PostMapping("/sterilisation-proofs/{userId}/approve")
+    public void approveSterilisation(@PathVariable String userId) {
+        admin.requireAdmin();
+        sterilisation.review(parseId(userId), true);
+    }
+
+    @Operation(summary = "Reject a sterilisation proof (clears the document)")
+    @PostMapping("/sterilisation-proofs/{userId}/reject")
+    public void rejectSterilisation(@PathVariable String userId) {
+        admin.requireAdmin();
+        sterilisation.review(parseId(userId), false);
     }
 
     @Operation(summary = "Headline metrics")

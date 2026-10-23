@@ -22,6 +22,10 @@ public class MeetupRsvp {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Bringing their pet along ("How are you coming?"). */
+    @Column(name = "with_pet", nullable = false)
+    private boolean withPet = false;
+
     @Column(name = "reminded_24h", nullable = false)
     private boolean reminded24h = false;
 
@@ -35,6 +39,8 @@ public class MeetupRsvp {
         this.userId = userId;
     }
 
+    public boolean isWithPet() { return withPet; }
+    public void setWithPet(boolean withPet) { this.withPet = withPet; }
     public UUID getMeetupId() { return meetupId; }
     public UUID getUserId() { return userId; }
     public boolean isReminded24h() { return reminded24h; }

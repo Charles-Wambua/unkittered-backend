@@ -5,6 +5,8 @@ import com.unkittered.api.reels.ReelDtos.ReelDto;
 import com.unkittered.api.reels.ReelDtos.UploadResponse;
 import com.unkittered.api.security.CurrentUser;
 import com.unkittered.api.storage.StorageService;
+import com.unkittered.api.subscription.Allowances;
+import com.unkittered.api.subscription.SubscriptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,10 +28,12 @@ public class ReelController {
 
     private final ReelService reels;
     private final StorageService storage;
+    private final SubscriptionService subscriptions;
 
-    public ReelController(ReelService reels, StorageService storage) {
+    public ReelController(ReelService reels, StorageService storage, SubscriptionService subscriptions) {
         this.reels = reels;
         this.storage = storage;
+        this.subscriptions = subscriptions;
     }
 
     @Operation(summary = "The video-profile feed (other people's reels)")
@@ -44,6 +48,10 @@ public class ReelController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "poster", required = false) MultipartFile poster) {
         UUID userId = CurrentUser.id();
+        // Watching reels is free; posting one is a Plus & Gold perk.
+        if ("free".equals(Allowances.normalise(subscriptions.tierOf(userId)))) {
+            throw ApiException.forbidden("Posting a video reel is part of Plus & Gold.");
+        }
 
         if (file == null || file.isEmpty()) {
             throw ApiException.badRequest("No video provided");

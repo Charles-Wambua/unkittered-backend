@@ -35,10 +35,11 @@ public class SubscriptionController {
 
     public record BoostResponse(String boostedUntil, int boostsRemaining) { }
 
-    @Operation(summary = "Get the current user's membership tier")
+    @Operation(summary = "The current tier and what's left of its allowances "
+            + "(wagsLeftToday is null when unlimited)")
     @GetMapping("/me")
-    public TierResponse me() {
-        return new TierResponse(subscriptions.tierOf(CurrentUser.id()));
+    public SubscriptionService.Allowance me() {
+        return subscriptions.allowanceOf(CurrentUser.id());
     }
 
     @Operation(summary = "Activate a profile Boost (Plus & Gold)")

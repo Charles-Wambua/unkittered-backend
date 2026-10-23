@@ -51,7 +51,13 @@ public class ChatController {
     @PostMapping("/conversations/{matchId}/messages")
     public MessageDto send(@PathVariable String matchId,
                            @Valid @RequestBody SendMessageRequest req) {
-        return chat.send(CurrentUser.id(), parseId(matchId), req.text());
+        return chat.send(CurrentUser.id(), parseId(matchId), req);
+    }
+
+    @Operation(summary = "Date Concierge: ideas grounded in what you share (Gold sees all three)")
+    @PostMapping("/conversations/{matchId}/date-plans")
+    public ChatService.ConciergeResult datePlans(@PathVariable String matchId) {
+        return chat.datePlans(CurrentUser.id(), parseId(matchId));
     }
 
     private UUID parseId(String raw) {

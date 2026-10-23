@@ -1,5 +1,7 @@
 package com.unkittered.api.profile;
 
+import com.unkittered.api.pet.PetDtos.PetDto;
+import com.unkittered.api.pet.PetRepository;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -11,6 +13,12 @@ public class ProfileMapper {
 
     /** A user counts as "online" if active within this window. */
     private static final Duration ONLINE_WINDOW = Duration.ofMinutes(2);
+
+    private final PetRepository pets;
+
+    public ProfileMapper(PetRepository pets) {
+        this.pets = pets;
+    }
 
     /**
      * Map for another user's eyes — presence is redacted when the subject has
@@ -73,7 +81,30 @@ public class ProfileMapper {
                 incognito,
                 p.getCardQuote(),
                 p.getConnectionMode(),
-                p.isOpenToFriends()
+                p.isOpenToFriends(),
+                pets.findByOwnerIdOrderByPositionAsc(p.getUserId()).stream().map(PetDto::from).toList(),
+                p.getPledgePath(),
+                p.getPledgedAt() == null ? null : p.getPledgedAt().plus(PledgePath.RENEWAL),
+                PledgePath.badgeFor(p.isVerified(), p.isSterilisationVerified()),
+                p.isSterilisationVerified() ? "verified" : p.isSterilisationDeclared() ? "declared" : "none",
+                p.getSterilisationProcedure(),
+                !redactHiddenPresence && p.isPaused()
         );
+    }
+
+    /**
+     * An anonymous stand-in for someone who liked you, for members whose tier
+     * doesn't include "see who wagged": no id, name, photos or details leave
+     * the server — only that a person (and roughly what kind of pet) exists.
+     */
+    public ProfileDto teaser(Profile p) {
+        String species = pets.findByOwnerIdOrderByPositionAsc(p.getUserId()).stream()
+                .findFirst().map(pet -> pet.getSpecies()).orElse(null);
+        return new ProfileDto(
+                "hidden-" + java.util.UUID.randomUUID(), "", 0, null, "", List.of(), "", -1.0,
+                false, List.of(), null, null,
+                species == null ? List.of() : List.of(species),
+                null, List.of(), null, false, null, false, true, false, null,
+                "dating", false, List.of(), null, null, "none", "none", null, false);
     }
 }
