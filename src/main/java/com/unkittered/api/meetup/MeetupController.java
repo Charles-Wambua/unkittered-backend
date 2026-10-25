@@ -41,6 +41,32 @@ public class MeetupController {
         return meetups.one(parseId(id), CurrentUser.id());
     }
 
+    @Operation(summary = "Another member's profile, to open from the pack chat (both must be going)")
+    @GetMapping("/{id}/members/{userId}/profile")
+    public com.unkittered.api.profile.ProfileDto memberProfile(@PathVariable String id, @PathVariable String userId) {
+        return meetups.memberProfile(parseId(id), CurrentUser.id(), parseId(userId));
+    }
+
+    @Operation(summary = "Host: set (or clear, with empty text) where to find the group")
+    @PutMapping("/{id}/meeting-point")
+    public PackChatService.ThreadDto meetingPoint(@PathVariable String id,
+                                                  @Valid @RequestBody PackChatService.MeetingPointRequest body) {
+        return chat.setMeetingPoint(parseId(id), CurrentUser.id(), body);
+    }
+
+    @Operation(summary = "Pack chat: \"I'm here\" check-in (from an hour before until it ends)")
+    @PostMapping("/{id}/arrived")
+    public PackChatService.PackMessageDto arrived(@PathVariable String id) {
+        return chat.arrived(parseId(id), CurrentUser.id());
+    }
+
+    @Operation(summary = "Pack chat: delete a message (your own on Gold; the host can delete any)")
+    @DeleteMapping("/{id}/messages/{messageId}")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void deleteMessage(@PathVariable String id, @PathVariable String messageId) {
+        chat.delete(parseId(id), CurrentUser.id(), parseId(messageId));
+    }
+
     @Operation(summary = "Pack chat: messages (members only); marks them read")
     @GetMapping("/{id}/messages")
     public PackChatService.ThreadDto messages(@PathVariable String id) {

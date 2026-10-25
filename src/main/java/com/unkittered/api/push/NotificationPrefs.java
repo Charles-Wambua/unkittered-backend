@@ -40,7 +40,7 @@ public class NotificationPrefs {
         return switch (type) {
             case "match" -> matches;
             case "message", "pack_message" -> messages;
-            case "meetup" -> reminders;
+            case "meetup", "meetup_cancelled" -> reminders;
             case "like" -> likes;
             default -> true;
         };

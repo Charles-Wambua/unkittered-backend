@@ -35,6 +35,9 @@ public final class ChatDtos {
             boolean lastMessageFromMe) {
     }
 
+    /** What a deleted message shows, for both people. */
+    public static final String DELETED_TEXT = "This message was deleted";
+
     /**
      * The message a reply quotes: who wrote it and a one-line preview (every
      * kind has a readable body, e.g. "📷 Photo" or "📅 Walk · Karura").
@@ -45,7 +48,8 @@ public final class ChatDtos {
 
         public static ReplyQuote of(Message original) {
             if (original == null) return null;
-            String body = original.getBody() == null ? "" : original.getBody();
+            String body = original.isDeleted() ? DELETED_TEXT
+                    : original.getBody() == null ? "" : original.getBody();
             String preview = body.length() > MAX_PREVIEW ? body.substring(0, MAX_PREVIEW - 1) + "…" : body;
             return new ReplyQuote(original.getId().toString(), original.getSenderId().toString(), preview,
                     RichMessages.Kind.fromWire(original.getKind()));
@@ -64,18 +68,21 @@ public final class ChatDtos {
             boolean read,
             RichMessages.Kind kind,
             Map<String, Object> payload,
-            ReplyQuote replyTo) {
+            ReplyQuote replyTo,
+            /** Deleted by its sender: shown as "This message was deleted". */
+            boolean deleted) {
 
         public static MessageDto from(Message m, java.util.UUID viewerId, Message repliedTo) {
             return new MessageDto(
                     m.getId().toString(),
                     m.getSenderId().equals(viewerId),
-                    m.getBody(),
+                    m.isDeleted() ? DELETED_TEXT : m.getBody(),
                     m.getCreatedAt(),
                     m.getReadAt() != null,
                     RichMessages.Kind.fromWire(m.getKind()),
                     m.getPayload(),
-                    ReplyQuote.of(repliedTo));
+                    m.isDeleted() ? null : ReplyQuote.of(repliedTo),
+                    m.isDeleted());
         }
     }
 

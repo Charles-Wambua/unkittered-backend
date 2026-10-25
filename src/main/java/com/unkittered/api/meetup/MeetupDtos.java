@@ -43,7 +43,9 @@ public final class MeetupDtos {
             Instant chatOpensAt,
             Instant chatClosesAt,
             /** Messages from others the viewer hasn't seen (members only). */
-            long chatUnread) {
+            long chatUnread,
+            /** Where to find the group (host-set), or null. */
+            String meetingPoint) {
     }
 
     /** Create payload. Extra client fields (hostName, joined, …) are ignored. */

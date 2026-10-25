@@ -69,6 +69,20 @@ public class ChatController {
         return chat.ratePlan(CurrentUser.id(), parseId(matchId), planId, body.rating());
     }
 
+    @Operation(summary = "Delete my message for both of us (Gold)")
+    @DeleteMapping("/conversations/{matchId}/messages/{messageId}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void deleteMessage(@PathVariable String matchId, @PathVariable String messageId) {
+        chat.deleteMessage(CurrentUser.id(), parseId(matchId), parseId(messageId));
+    }
+
+    @Operation(summary = "Delete chat: clear this conversation's history for me (Gold); the match stays")
+    @PostMapping("/conversations/{matchId}/clear")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void clear(@PathVariable String matchId) {
+        chat.clearConversation(CurrentUser.id(), parseId(matchId));
+    }
+
     @Operation(summary = "Date Concierge: ideas grounded in what you share (Gold sees all three)")
     @PostMapping("/conversations/{matchId}/date-plans")
     public ChatService.ConciergeResult datePlans(@PathVariable String matchId) {

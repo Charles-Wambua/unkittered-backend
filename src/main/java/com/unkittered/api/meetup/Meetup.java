@@ -49,6 +49,10 @@ public class Meetup {
     @Column(name = "duration_minutes", nullable = false)
     private int durationMinutes = 120;
 
+    /** Where to find the group, set by the host. */
+    @Column(name = "meeting_point")
+    private String meetingPoint;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -82,4 +86,6 @@ public class Meetup {
     public Instant getEndsAt() { return startsAt.plus(Duration.ofMinutes(durationMinutes)); }
     public int getCapacity() { return capacity; }
     public String getDescription() { return description; }
+    public String getMeetingPoint() { return meetingPoint; }
+    public void setMeetingPoint(String v) { this.meetingPoint = v; }
 }

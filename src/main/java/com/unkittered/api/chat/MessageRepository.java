@@ -27,6 +27,9 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     /** Messages in a conversation the viewer has not yet read (i.e. sent by the other person). */
     long countByMatchIdAndSenderIdNotAndReadAtIsNull(UUID matchId, UUID senderId);
 
+    long countByMatchIdAndSenderIdNotAndReadAtIsNullAndCreatedAtAfter(UUID matchId, UUID senderId,
+                                                                    java.time.Instant after);
+
     /** Mark every message the viewer received in this conversation as read. */
     @Modifying(clearAutomatically = true)
     @Query("""

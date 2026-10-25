@@ -3,8 +3,12 @@ package com.unkittered.api.meetup;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.meetup.MeetupDtos.CreateMeetupRequest;
 import com.unkittered.api.meetup.MeetupDtos.MeetupDto;
+import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.profile.Profile;
+import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileRepository;
+import com.unkittered.api.push.PushService;
+import com.unkittered.api.safety.BlockRepository;
 import com.unkittered.api.subscription.SubscriptionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,12 +38,19 @@ public class MeetupService {
     private final ProfileRepository profiles;
     private final SubscriptionService subscriptions;
     private final PackMessageRepository chat;
+    private final PushService push;
+    private final BlockRepository blocks;
+    private final DiscoverService discover;
 
     public MeetupService(MeetupRepository meetups, MeetupRsvpRepository rsvps,
                          MeetupReportRepository reports, ProfileRepository profiles,
-                         SubscriptionService subscriptions, PackMessageRepository chat) {
+                         SubscriptionService subscriptions, PackMessageRepository chat,
+                         PushService push, BlockRepository blocks, DiscoverService discover) {
         this.subscriptions = subscriptions;
         this.chat = chat;
+        this.push = push;
+        this.blocks = blocks;
+        this.discover = discover;
         this.meetups = meetups;
         this.rsvps = rsvps;
         this.reports = reports;
@@ -55,7 +66,31 @@ public class MeetupService {
             throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN,
                     "Only the host can cancel this meetup");
         }
+        // Tell everyone who was going before the RSVPs disappear with it.
+        List<UUID> going = rsvps.findByMeetupId(meetupId).stream()
+                .map(MeetupRsvp::getUserId).filter(id -> !id.equals(userId)).toList();
+        if (!going.isEmpty() && !"ended".equals(PackTimeline.status(m, Instant.now()))) {
+            push.sendToUsers(going, "Pack cancelled",
+                    "“" + m.getTitle() + "” was cancelled by the host.",
+                    java.util.Map.of("type", "meetup_cancelled", "meetupId", meetupId.toString()));
+        }
         meetups.deleteById(meetupId);
+    }
+
+    /**
+     * Someone else in the same pack, to open their profile from the pack chat.
+     * Both must be going, and neither may have blocked the other.
+     */
+    @Transactional(readOnly = true)
+    public ProfileDto memberProfile(UUID meetupId, UUID viewerId, UUID memberId) {
+        if (!rsvps.existsByMeetupIdAndUserId(meetupId, viewerId)
+                || !rsvps.existsByMeetupIdAndUserId(meetupId, memberId)
+                || blocks.existsByBlockerIdAndBlockedId(viewerId, memberId)
+                || blocks.existsByBlockerIdAndBlockedId(memberId, viewerId)) {
+            throw ApiException.notFound("Profile not found");
+        }
+        Profile p = profiles.findById(memberId).orElseThrow(() -> ApiException.notFound("Profile not found"));
+        return discover.viewOf(viewerId, p);
     }
 
     /** File a moderation report against a meetup. */
@@ -194,7 +229,8 @@ public class MeetupService {
                 PackTimeline.chatState(m, now),
                 PackTimeline.chatOpensAt(m),
                 PackTimeline.chatClosesAt(m),
-                unread);
+                unread,
+                mine != null ? m.getMeetingPoint() : null);
     }
 
     /**

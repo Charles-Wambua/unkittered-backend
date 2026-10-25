@@ -33,12 +33,24 @@ public final class MessageModeration {
     private static final Pattern EMAIL =
             Pattern.compile("[a-z0-9._%+\\-]+\\s*@\\s*[a-z0-9.\\-]+\\s*\\.\\s*[a-z]{2,}");
     private static final Pattern DIGIT_RUN = Pattern.compile("\\d{7,}");
+    /** "@karura_walks", or a social app / link: ways to move off the app. */
+    private static final Pattern HANDLE = Pattern.compile("(^|[\\s(])@[a-z0-9_.]{3,}");
+    private static final Pattern SOCIAL = Pattern.compile(
+            "\\b(insta|instagram|snap|snapchat|whatsapp|whats app|telegram|tiktok)\\b|wa\\.me/|t\\.me/");
 
     public static Flag check(String text, boolean isGold) {
         if (text == null || text.isBlank()) return Flag.CLEAN;
         if (hasProfanity(text)) return Flag.PROFANITY;
         if (!isGold && hasContactInfo(text)) return Flag.CONTACT_INFO;
         return Flag.CLEAN;
+    }
+
+    /** For pack chats, where contact details aren't allowed for anyone. */
+    public static String reasonInGroup(Flag flag) {
+        return flag == Flag.CONTACT_INFO
+                ? "To keep packs safe, phone numbers, emails and social handles can't be shared here. "
+                  + "Tap someone's name to see their profile and wag them instead."
+                : reason(flag);
     }
 
     public static String reason(Flag flag) {
@@ -74,6 +86,7 @@ public final class MessageModeration {
     private static boolean hasContactInfo(String text) {
         String lower = text.toLowerCase();
         if (EMAIL.matcher(lower).find()) return true;
+        if (HANDLE.matcher(lower).find() || SOCIAL.matcher(lower).find()) return true;
 
         // Numeric phone: strip separators, look for a run of 7+ digits.
         String digitsOnly = lower.replaceAll("[\\s().\\-_/+]", "");

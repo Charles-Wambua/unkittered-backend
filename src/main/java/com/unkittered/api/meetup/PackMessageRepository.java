@@ -11,5 +11,7 @@ public interface PackMessageRepository extends JpaRepository<PackMessage, UUID> 
 
     long countByMeetupIdAndSenderIdNot(UUID meetupId, UUID senderId);
 
+    java.util.Optional<PackMessage> findFirstByMeetupIdAndSenderIdAndKind(UUID meetupId, UUID senderId, String kind);
+
     long countByMeetupIdAndSenderIdNotAndCreatedAtAfter(UUID meetupId, UUID senderId, Instant after);
 }

@@ -42,6 +42,10 @@ public class Message {
     @Column(name = "reply_to_id")
     private UUID replyToId;
 
+    /** Deleted for everyone (Gold); the place in the thread stays. */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     /** Set when the recipient has read the message; null while unread. */
     @Column(name = "read_at")
     private Instant readAt;
@@ -70,5 +74,13 @@ public class Message {
     public Instant getReadAt() { return readAt; }
     public void setReadAt(Instant readAt) { this.readAt = readAt; }
     public UUID getReplyToId() { return replyToId; }
+    public boolean isDeleted() { return deletedAt != null; }
+
+    void delete() {
+        deletedAt = Instant.now();
+        body = "";
+        payload = null;
+        kind = RichMessages.Kind.TEXT.wire();
+    }
     public void setReplyToId(UUID replyToId) { this.replyToId = replyToId; }
 }

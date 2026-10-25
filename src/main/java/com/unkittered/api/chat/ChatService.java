@@ -40,6 +40,7 @@ public class ChatService {
     private final PushService push;
     private final PetRepository pets;
     private final PlanFeedbackRepository feedback;
+    private final ChatClearRepository clears;
     /** Public base our storage serves media from (may be empty = relative URLs). */
     private final String mediaBase;
 
@@ -47,8 +48,10 @@ public class ChatService {
                        ProfileRepository profiles, ProfileMapper mapper,
                        RealtimeGateway realtime, SubscriptionService subscriptions,
                        PushService push, PetRepository pets, PlanFeedbackRepository feedback,
+                       ChatClearRepository clears,
                        @Value("${unkittered.storage.public-base-url:}") String mediaBase) {
         this.feedback = feedback;
+        this.clears = clears;
         this.mediaBase = mediaBase.replaceAll("/+$", "");
         this.matches = matches;
         this.messages = messages;
@@ -74,8 +77,14 @@ public class ChatService {
     public List<ConversationDto> conversationsFor(UUID viewerId) {
         return matches.findAllForUser(viewerId).stream()
                 .map(m -> {
-                    var last = messages.findFirstByMatchIdOrderByCreatedAtDesc(m.getId());
-                    long unread = messages.countByMatchIdAndSenderIdNotAndReadAtIsNull(m.getId(), viewerId);
+                    // "Delete chat" hides everything up to when it was cleared.
+                    Instant cleared = clearedAt(viewerId, m.getId());
+                    var last = messages.findFirstByMatchIdOrderByCreatedAtDesc(m.getId())
+                            .filter(msg -> cleared == null || msg.getCreatedAt().isAfter(cleared));
+                    long unread = cleared == null
+                            ? messages.countByMatchIdAndSenderIdNotAndReadAtIsNull(m.getId(), viewerId)
+                            : messages.countByMatchIdAndSenderIdNotAndReadAtIsNullAndCreatedAtAfter(
+                                    m.getId(), viewerId, cleared);
                     var plan = latestPlan(m.getId());
                     return new ConversationDto(
                             m.getId().toString(),
@@ -97,7 +106,10 @@ public class ChatService {
     public List<MessageDto> messages(UUID viewerId, UUID matchId) {
         requireMembership(matchId, viewerId);
         messages.markRead(matchId, viewerId, Instant.now());
-        List<Message> all = messages.findByMatchIdOrderByCreatedAtAsc(matchId);
+        Instant cleared = clearedAt(viewerId, matchId);
+        List<Message> all = messages.findByMatchIdOrderByCreatedAtAsc(matchId).stream()
+                .filter(m -> cleared == null || m.getCreatedAt().isAfter(cleared))
+                .toList();
         Map<UUID, Message> byId = new java.util.HashMap<>();
         all.forEach(m -> byId.put(m.getId(), m));
         return all.stream()
@@ -219,11 +231,46 @@ public class ChatService {
      * "🌹 You sent a Rose" instead.
      */
     static String previewFor(Message m, UUID viewerId) {
+        if (m.isDeleted()) return ChatDtos.DELETED_TEXT;
         if (RichMessages.Kind.GIFT.wire().equals(m.getKind()) && m.getSenderId().equals(viewerId)
                 && m.getPayload() != null) {
             return m.getPayload().get("emoji") + " You sent a " + m.getPayload().get("name");
         }
         return m.getBody();
+    }
+
+    /** Deletes my message for both of us (Gold). */
+    @Transactional
+    public void deleteMessage(UUID viewerId, UUID matchId, UUID messageId) {
+        Match match = requireMembership(matchId, viewerId);
+        Message m = messages.findById(messageId)
+                .filter(x -> x.getMatchId().equals(matchId))
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+        if (!m.getSenderId().equals(viewerId)) throw ApiException.forbidden("You can only delete your own messages.");
+        requireGold(viewerId, "Deleting messages is a Gold feature.");
+        if (m.isDeleted()) return;
+        m.delete();
+        realtime.sendToUser(otherUserId(match, viewerId), Map.of(
+                "type", "message_deleted", "matchId", matchId.toString(), "id", messageId.toString()));
+    }
+
+    /** "Delete chat": clears this conversation's history for me only (Gold). */
+    @Transactional
+    public void clearConversation(UUID viewerId, UUID matchId) {
+        requireMembership(matchId, viewerId);
+        requireGold(viewerId, "Deleting conversations is a Gold feature.");
+        Instant now = Instant.now();
+        clears.findById(new ChatClear.Key(viewerId, matchId)).ifPresentOrElse(
+                c -> c.setClearedAt(now),
+                () -> clears.save(new ChatClear(viewerId, matchId, now)));
+    }
+
+    private Instant clearedAt(UUID viewerId, UUID matchId) {
+        return clears.findById(new ChatClear.Key(viewerId, matchId)).map(ChatClear::getClearedAt).orElse(null);
+    }
+
+    private void requireGold(UUID userId, String message) {
+        if (!"gold".equalsIgnoreCase(subscriptions.tierOf(userId))) throw ApiException.forbidden(message);
     }
 
     /** My private feedback on this chat's past dates: plan id → good | bad. */

@@ -26,6 +26,13 @@ public class PackMessage {
     @Column(name = "reply_to_id")
     private UUID replyToId;
 
+    /** text | arrival | meeting_point. */
+    @Column(nullable = false)
+    private String kind = PackChatService.TEXT;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -44,4 +51,17 @@ public class PackMessage {
     public String getBody() { return body; }
     public UUID getReplyToId() { return replyToId; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getKind() { return kind; }
+    public boolean isDeleted() { return deletedAt != null; }
+
+    PackMessage kind(String k) {
+        this.kind = k;
+        return this;
+    }
+
+    /** Deleted for everyone: the text goes, the place in the thread stays. */
+    void delete() {
+        deletedAt = Instant.now();
+        body = "";
+    }
 }

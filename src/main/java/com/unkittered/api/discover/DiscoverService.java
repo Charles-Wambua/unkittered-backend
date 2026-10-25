@@ -84,6 +84,13 @@ public class DiscoverService {
         return deck;
     }
 
+    /** One profile as this viewer sees it (compatibility, distance). */
+    @Transactional(readOnly = true)
+    public ProfileDto viewOf(UUID viewerId, Profile candidate) {
+        Profile viewer = profiles.findById(viewerId).orElse(null);
+        return mapper.toDto(candidate, compatibility(viewer, candidate), distanceKm(viewer, candidate));
+    }
+
     /** What the filters need to know about a candidate. Pets are only loaded
      *  when a filter actually looks at species. */
     private DiscoveryFilter.Candidate facts(Profile viewer, Profile candidate, DiscoveryPrefs prefs) {
