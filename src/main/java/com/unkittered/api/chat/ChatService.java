@@ -80,12 +80,13 @@ public class ChatService {
                     return new ConversationDto(
                             m.getId().toString(),
                             otherProfile(m, viewerId),
-                            last.map(Message::getBody).orElse(null),
+                            last.map(msg -> previewFor(msg, viewerId)).orElse(null),
                             last.map(Message::getCreatedAt).orElse(m.getCreatedAt()),
                             unread,
                             last.map(msg -> RichMessages.Kind.fromWire(msg.getKind())).orElse(null),
                             plan.map(Map.Entry::getKey).orElse(null),
-                            plan.map(Map.Entry::getValue).orElse(null));
+                            plan.map(Map.Entry::getValue).orElse(null),
+                            last.map(msg -> msg.getSenderId().equals(viewerId)).orElse(false));
                 })
                 // Most recent activity first.
                 .sorted(Comparator.comparing(ConversationDto::lastMessageAt).reversed())
@@ -210,6 +211,19 @@ public class ChatService {
         } catch (java.time.format.DateTimeParseException e) {
             return null;
         }
+    }
+
+    /**
+     * The chat-list preview, worded for the viewer. Gifts are stored as the
+     * recipient reads them ("🌹 Sent you a Rose"), so the sender sees
+     * "🌹 You sent a Rose" instead.
+     */
+    static String previewFor(Message m, UUID viewerId) {
+        if (RichMessages.Kind.GIFT.wire().equals(m.getKind()) && m.getSenderId().equals(viewerId)
+                && m.getPayload() != null) {
+            return m.getPayload().get("emoji") + " You sent a " + m.getPayload().get("name");
+        }
+        return m.getBody();
     }
 
     /** My private feedback on this chat's past dates: plan id → good | bad. */

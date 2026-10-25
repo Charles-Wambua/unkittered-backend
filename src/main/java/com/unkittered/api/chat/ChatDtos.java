@@ -30,7 +30,9 @@ public final class ChatDtos {
             /** The most recent date plan in this chat (plan payload), or null. */
             Map<String, Object> plan,
             /** "proposed" | "accepted" | "declined", or null without a plan. */
-            String planStatus) {
+            String planStatus,
+            /** Whether the viewer sent the latest message. */
+            boolean lastMessageFromMe) {
     }
 
     /**
