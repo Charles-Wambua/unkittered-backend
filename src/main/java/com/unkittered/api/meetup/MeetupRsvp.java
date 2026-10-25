@@ -32,6 +32,10 @@ public class MeetupRsvp {
     @Column(name = "reminded_1h", nullable = false)
     private boolean reminded1h = false;
 
+    /** Last time this member opened the pack chat (for its unread count). */
+    @Column(name = "chat_read_at")
+    private Instant chatReadAt;
+
     protected MeetupRsvp() { }
 
     public MeetupRsvp(UUID meetupId, UUID userId) {
@@ -47,4 +51,6 @@ public class MeetupRsvp {
     public void setReminded24h(boolean v) { this.reminded24h = v; }
     public boolean isReminded1h() { return reminded1h; }
     public void setReminded1h(boolean v) { this.reminded1h = v; }
+    public Instant getChatReadAt() { return chatReadAt; }
+    public void setChatReadAt(Instant v) { this.chatReadAt = v; }
 }

@@ -1,6 +1,7 @@
 package com.unkittered.api.meetup;
 
 import jakarta.persistence.*;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -78,6 +79,7 @@ public class Meetup {
     public String getArea() { return area; }
     public String getVenue() { return venue; }
     public Instant getStartsAt() { return startsAt; }
+    public Instant getEndsAt() { return startsAt.plus(Duration.ofMinutes(durationMinutes)); }
     public int getCapacity() { return capacity; }
     public String getDescription() { return description; }
 }

@@ -56,6 +56,18 @@ public class WalletTransaction {
 
     private String note;
 
+    private String method;
+
+    private String currency;
+
+    @Column(name = "amount_minor")
+    private Integer amountMinor;
+
+    @Column(name = "net_kes_cents")
+    private Long netKesCents;
+
+    private String destination;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -74,6 +86,14 @@ public class WalletTransaction {
     WalletTransaction phone(String p) { this.phone = p; return this; }
     WalletTransaction providerRef(String r) { this.providerRef = r; return this; }
     WalletTransaction note(String n) { this.note = n; return this; }
+    WalletTransaction method(PaymentMethod m) { this.method = m.wire(); return this; }
+    WalletTransaction amount(String currency, int minor) {
+        this.currency = currency;
+        this.amountMinor = minor;
+        return this;
+    }
+    WalletTransaction netKesCents(long v) { this.netKesCents = v; return this; }
+    WalletTransaction destination(String d) { this.destination = d; return this; }
 
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
@@ -85,5 +105,10 @@ public class WalletTransaction {
     public UUID getCounterpartyId() { return counterpartyId; }
     public String getProviderRef() { return providerRef; }
     public String getNote() { return note; }
+    public String getMethod() { return method; }
+    public String getCurrency() { return currency; }
+    public Integer getAmountMinor() { return amountMinor; }
+    public Long getNetKesCents() { return netKesCents; }
+    public String getDestination() { return destination; }
     public Instant getCreatedAt() { return createdAt; }
 }

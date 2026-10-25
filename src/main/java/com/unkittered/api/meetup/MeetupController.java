@@ -22,12 +22,39 @@ import java.util.UUID;
 public class MeetupController {
 
     private final MeetupService meetups;
+    private final PackChatService chat;
 
-    public MeetupController(MeetupService meetups) {
+    public MeetupController(MeetupService meetups, PackChatService chat) {
         this.meetups = meetups;
+        this.chat = chat;
     }
 
-    @Operation(summary = "List upcoming meetups")
+    @Operation(summary = "Packs the signed-in user went to that have ended (last 90 days)")
+    @GetMapping("/past")
+    public Map<String, List<MeetupDto>> past() {
+        return Map.of("meetups", meetups.pastFor(CurrentUser.id()));
+    }
+
+    @Operation(summary = "One meetup, in any state (upcoming, live or ended)")
+    @GetMapping("/{id}")
+    public MeetupDto one(@PathVariable String id) {
+        return meetups.one(parseId(id), CurrentUser.id());
+    }
+
+    @Operation(summary = "Pack chat: messages (members only); marks them read")
+    @GetMapping("/{id}/messages")
+    public PackChatService.ThreadDto messages(@PathVariable String id) {
+        return chat.thread(parseId(id), CurrentUser.id());
+    }
+
+    @Operation(summary = "Pack chat: post a message (members, while the chat is open)")
+    @PostMapping("/{id}/messages")
+    public PackChatService.PackMessageDto send(@PathVariable String id,
+                                               @Valid @RequestBody PackChatService.SendRequest body) {
+        return chat.send(parseId(id), CurrentUser.id(), body);
+    }
+
+    @Operation(summary = "List packs that haven't ended yet, soonest first")
     @GetMapping
     public Map<String, List<MeetupDto>> list() {
         return Map.of("meetups", meetups.feedFor(CurrentUser.id()));

@@ -23,6 +23,10 @@ public class Wallet {
     @Column(nullable = false)
     private int earned;
 
+    /** Net KES cents paid for the current {@code paws} balance. */
+    @Column(name = "paws_value_cents", nullable = false)
+    private long pawsValueCents;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
@@ -35,6 +39,11 @@ public class Wallet {
     public UUID getUserId() { return userId; }
     public int getPaws() { return paws; }
     public int getEarned() { return earned; }
+    public long getPawsValueCents() { return pawsValueCents; }
+
+    void addPawsValue(long deltaCents) {
+        pawsValueCents = Math.max(0, pawsValueCents + deltaCents);
+    }
 
     void addPaws(int delta) {
         if (paws + delta < 0) throw new IllegalStateException("negative paws");

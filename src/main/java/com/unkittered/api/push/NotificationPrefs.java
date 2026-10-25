@@ -39,7 +39,7 @@ public class NotificationPrefs {
         if (type == null) return true;
         return switch (type) {
             case "match" -> matches;
-            case "message" -> messages;
+            case "message", "pack_message" -> messages;
             case "meetup" -> reminders;
             case "like" -> likes;
             default -> true;

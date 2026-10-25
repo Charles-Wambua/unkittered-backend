@@ -33,7 +33,27 @@ public final class ChatDtos {
             String planStatus) {
     }
 
-    /** A single chat message. {@code isMe} is true when the viewer is the sender. */
+    /**
+     * The message a reply quotes: who wrote it and a one-line preview (every
+     * kind has a readable body, e.g. "📷 Photo" or "📅 Walk · Karura").
+     */
+    public record ReplyQuote(String id, String senderId, String text, RichMessages.Kind kind) {
+
+        static final int MAX_PREVIEW = 120;
+
+        public static ReplyQuote of(Message original) {
+            if (original == null) return null;
+            String body = original.getBody() == null ? "" : original.getBody();
+            String preview = body.length() > MAX_PREVIEW ? body.substring(0, MAX_PREVIEW - 1) + "…" : body;
+            return new ReplyQuote(original.getId().toString(), original.getSenderId().toString(), preview,
+                    RichMessages.Kind.fromWire(original.getKind()));
+        }
+    }
+
+    /**
+     * A single chat message. {@code isMe} is true when the viewer is the sender;
+     * {@code replyTo} quotes the message it answers, if any.
+     */
     public record MessageDto(
             String id,
             boolean isMe,
@@ -41,9 +61,10 @@ public final class ChatDtos {
             Instant createdAt,
             boolean read,
             RichMessages.Kind kind,
-            Map<String, Object> payload) {
+            Map<String, Object> payload,
+            ReplyQuote replyTo) {
 
-        public static MessageDto from(Message m, java.util.UUID viewerId) {
+        public static MessageDto from(Message m, java.util.UUID viewerId, Message repliedTo) {
             return new MessageDto(
                     m.getId().toString(),
                     m.getSenderId().equals(viewerId),
@@ -51,7 +72,8 @@ public final class ChatDtos {
                     m.getCreatedAt(),
                     m.getReadAt() != null,
                     RichMessages.Kind.fromWire(m.getKind()),
-                    m.getPayload());
+                    m.getPayload(),
+                    ReplyQuote.of(repliedTo));
         }
     }
 
@@ -62,7 +84,9 @@ public final class ChatDtos {
     public record SendMessageRequest(
             @Size(max = 4000) String text,
             RichMessages.Kind kind,
-            Map<String, Object> payload) {
+            Map<String, Object> payload,
+            /** Optional: the id of the message in this chat being replied to. */
+            String replyToId) {
         public RichMessages.Kind kindOrText() { return kind == null ? RichMessages.Kind.TEXT : kind; }
     }
 }

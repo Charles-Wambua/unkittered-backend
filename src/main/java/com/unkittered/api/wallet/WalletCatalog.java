@@ -10,14 +10,7 @@ public final class WalletCatalog {
 
     private WalletCatalog() { }
 
-    /** Share of a gift's price the recipient keeps as withdrawable earnings. */
-    public static final double CREATOR_SHARE = 0.5;
-
-    /** M-Pesa withdrawal fee, taken from the amount withdrawn. */
-    public static final double WITHDRAWAL_FEE = 0.15;
-
-    /** Minimum earned Paws per withdrawal. 1 earned Paw = KES 1. */
-    public static final int MIN_WITHDRAWAL = 500;
+    // The share, fees and minimums live in PaymentsProperties (configurable).
 
     public enum Gift {
         ROSE("rose", "Rose", "🌹", 5),
@@ -45,48 +38,53 @@ public final class WalletCatalog {
         @JsonValue
         public String id() { return id; }
 
-        /** What the recipient earns. */
-        public int creatorShare() { return (int) Math.floor(paws * CREATOR_SHARE); }
-
         public static Gift of(String id) {
             return Arrays.stream(values()).filter(g -> g.id.equals(id)).findFirst()
                     .orElseThrow(() -> ApiException.badRequest("Unknown gift: " + id));
         }
     }
 
-    /** Paws packs bought with M-Pesa. Bigger packs carry bonus Paws. */
+    /**
+     * Paws packs. Bigger packs carry bonus Paws. Prices are per currency in
+     * minor units (cents); the stores charge their own local price for the
+     * matching product id, which must be set up the same in their consoles.
+     */
     public enum PawsPack {
-        STARTER("starter", 50, 0, 50),
-        SMALL("small", 120, 10, 100),
-        MEDIUM("medium", 300, 50, 250),
-        LARGE("large", 650, 150, 500),
-        HUGE("huge", 1400, 400, 1000);
+        //                          KES     USD  EUR  GBP
+        STARTER("starter", 50, 0,    5000,   49,  49,  45),
+        SMALL("small", 120, 10,     10000,   99,  99,  89),
+        MEDIUM("medium", 300, 50,   25000,  199, 199, 179),
+        LARGE("large", 650, 150,    50000,  399, 399, 349),
+        HUGE("huge", 1400, 400,    100000,  799, 799, 699);
 
         public final String id;
         public final int paws;
         public final int bonus;
-        public final int priceKes;
+        private final java.util.Map<String, Integer> prices;
 
-        PawsPack(String id, int paws, int bonus, int priceKes) {
+        PawsPack(String id, int paws, int bonus, int kes, int usd, int eur, int gbp) {
             this.id = id;
             this.paws = paws;
             this.bonus = bonus;
-            this.priceKes = priceKes;
+            this.prices = java.util.Map.of("KES", kes, "USD", usd, "EUR", eur, "GBP", gbp);
         }
 
         public int total() { return paws + bonus; }
 
+        /** Price in minor units; unknown currencies fall back to USD. */
+        public int priceMinor(String currency) {
+            return prices.getOrDefault(currency, prices.get("USD"));
+        }
+
+        /** The whole-shilling price, for M-Pesa. */
+        public int priceKes() { return prices.get("KES") / 100; }
+
+        /** Product id in Google Play Console / App Store Connect. */
+        public String storeProductId() { return "paws_" + id; }
+
         public static PawsPack of(String id) {
             return Arrays.stream(values()).filter(p -> p.id.equals(id)).findFirst()
                     .orElseThrow(() -> ApiException.badRequest("Unknown Paws pack: " + id));
-        }
-    }
-
-    /** Withdrawal maths: fee rounded up, payout what's left. */
-    public record Payout(int paws, int feeKes, int payoutKes) {
-        public static Payout of(int paws) {
-            int fee = (int) Math.ceil(paws * WITHDRAWAL_FEE);
-            return new Payout(paws, fee, paws - fee);
         }
     }
 }

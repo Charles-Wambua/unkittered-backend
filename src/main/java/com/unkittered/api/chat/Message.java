@@ -38,6 +38,10 @@ public class Message {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> payload;
 
+    /** The message this one replies to (swipe-to-reply), or null. */
+    @Column(name = "reply_to_id")
+    private UUID replyToId;
+
     /** Set when the recipient has read the message; null while unread. */
     @Column(name = "read_at")
     private Instant readAt;
@@ -65,4 +69,6 @@ public class Message {
     public Map<String, Object> getPayload() { return payload; }
     public Instant getReadAt() { return readAt; }
     public void setReadAt(Instant readAt) { this.readAt = readAt; }
+    public UUID getReplyToId() { return replyToId; }
+    public void setReplyToId(UUID replyToId) { this.replyToId = replyToId; }
 }

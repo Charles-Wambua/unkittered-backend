@@ -3,7 +3,6 @@ package com.unkittered.api.wallet;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.wallet.WalletCatalog.Gift;
 import com.unkittered.api.wallet.WalletCatalog.PawsPack;
-import com.unkittered.api.wallet.WalletCatalog.Payout;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,27 +11,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class WalletRulesTest {
 
     @Test
-    void recipientsKeepHalfOfAGift() {
-        assertThat(Gift.ROSE.creatorShare()).isEqualTo(2); // 5 → floor(2.5)
-        assertThat(Gift.BOUQUET.creatorShare()).isEqualTo(50);
-        assertThat(Gift.DIAMOND.creatorShare()).isEqualTo(500);
-    }
-
-    @Test
-    void withdrawalFeeRoundsUpSoTheHouseNeverPaysFractions() {
-        var p = Payout.of(500);
-        assertThat(p.feeKes()).isEqualTo(75);
-        assertThat(p.payoutKes()).isEqualTo(425);
-        var odd = Payout.of(501);
-        assertThat(odd.feeKes() + odd.payoutKes()).isEqualTo(501);
-        assertThat(odd.feeKes()).isEqualTo(76);
-    }
-
-    @Test
     void biggerPacksCarryBonusPaws() {
         assertThat(PawsPack.STARTER.total()).isEqualTo(50);
         assertThat(PawsPack.HUGE.total()).isEqualTo(1800);
-        assertThat(PawsPack.HUGE.priceKes).isEqualTo(1000);
+        assertThat(PawsPack.HUGE.priceKes()).isEqualTo(1000);
+        assertThat(PawsPack.HUGE.priceMinor("USD")).isEqualTo(799);
+        assertThat(PawsPack.HUGE.priceMinor("JPY")).isEqualTo(799); // unknown → USD
+        assertThat(PawsPack.SMALL.storeProductId()).isEqualTo("paws_small");
     }
 
     @Test

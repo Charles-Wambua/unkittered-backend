@@ -94,8 +94,12 @@ public class ChatService {
     public List<MessageDto> messages(UUID viewerId, UUID matchId) {
         requireMembership(matchId, viewerId);
         messages.markRead(matchId, viewerId, Instant.now());
-        return messages.findByMatchIdOrderByCreatedAtAsc(matchId).stream()
-                .map(m -> MessageDto.from(m, viewerId))
+        List<Message> all = messages.findByMatchIdOrderByCreatedAtAsc(matchId);
+        Map<UUID, Message> byId = new java.util.HashMap<>();
+        all.forEach(m -> byId.put(m.getId(), m));
+        return all.stream()
+                .map(m -> MessageDto.from(m, viewerId,
+                        m.getReplyToId() == null ? null : byId.get(m.getReplyToId())))
                 .toList();
     }
 
@@ -110,7 +114,7 @@ public class ChatService {
                     emoji + " Sent you a " + giftName,
                     Map.of("giftId", giftId, "name", giftName, "emoji", emoji));
             Message saved = messages.save(new Message(match.getId(), fromId, prepared));
-            realtime.sendToUser(toId, MessagePush.of(saved));
+            realtime.sendToUser(toId, MessagePush.of(saved, null));
         });
     }
 
@@ -153,12 +157,15 @@ public class ChatService {
                 throw ApiException.badRequest(MessageModeration.reason(flag));
             }
         }
-        Message saved = messages.save(new Message(matchId, viewerId, prepared));
+        Message repliedTo = replyTarget(matchId, req.replyToId());
+        Message toSave = new Message(matchId, viewerId, prepared);
+        if (repliedTo != null) toSave.setReplyToId(repliedTo.getId());
+        Message saved = messages.save(toSave);
 
         // Push the message live to the recipient's open sessions. The sender
         // already gets it as this method's HTTP response, so we skip echoing.
         UUID recipient = otherUserId(match, viewerId);
-        realtime.sendToUser(recipient, MessagePush.of(saved));
+        realtime.sendToUser(recipient, MessagePush.of(saved, repliedTo));
 
         // Mobile push for when their app is closed.
         String senderName = profiles.findById(viewerId).map(Profile::getName)
@@ -168,7 +175,21 @@ public class ChatService {
         push.sendToUser(recipient, senderName, preview,
                 Map.of("type", "message", "matchId", matchId.toString(),
                         "senderId", viewerId.toString(), "kind", saved.getKind()));
-        return MessageDto.from(saved, viewerId);
+        return MessageDto.from(saved, viewerId, repliedTo);
+    }
+
+    /** The message being replied to; it must be in the same conversation. */
+    private Message replyTarget(UUID matchId, String replyToId) {
+        if (replyToId == null || replyToId.isBlank()) return null;
+        UUID id;
+        try {
+            id = UUID.fromString(replyToId);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.badRequest("Unknown message to reply to");
+        }
+        return messages.findById(id)
+                .filter(m -> m.getMatchId().equals(matchId))
+                .orElseThrow(() -> ApiException.badRequest("Unknown message to reply to"));
     }
 
     /** A plan message in this conversation, by its payload id. */

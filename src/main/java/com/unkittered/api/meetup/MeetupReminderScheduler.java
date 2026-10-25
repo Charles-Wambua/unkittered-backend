@@ -15,8 +15,7 @@ import java.util.Map;
 /**
  * Pushes trip/meetup reminders so RSVPs don't forget. Runs every 15 minutes and
  * sends two waves — a day-before nudge and a starting-soon nudge — each tracked
- * per-RSVP so it never double-sends. (The Flutter client also schedules an
- * on-device local notification at RSVP time, which fires even fully offline.)
+ * per-RSVP so it never double-sends.
  */
 @Component
 public class MeetupReminderScheduler {

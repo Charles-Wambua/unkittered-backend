@@ -1,5 +1,6 @@
 package com.unkittered.api.realtime;
 
+import com.unkittered.api.chat.ChatDtos.ReplyQuote;
 import com.unkittered.api.chat.Message;
 
 import java.time.Instant;
@@ -23,9 +24,10 @@ public final class RealtimeEvents {
             String text,
             Instant createdAt,
             String kind,
-            Map<String, Object> payload) {
+            Map<String, Object> payload,
+            ReplyQuote replyTo) {
 
-        public static MessagePush of(Message m) {
+        public static MessagePush of(Message m, Message repliedTo) {
             return new MessagePush(
                     "message",
                     m.getMatchId().toString(),
@@ -34,7 +36,8 @@ public final class RealtimeEvents {
                     m.getBody(),
                     m.getCreatedAt(),
                     m.getKind(),
-                    m.getPayload());
+                    m.getPayload(),
+                    ReplyQuote.of(repliedTo));
         }
     }
 

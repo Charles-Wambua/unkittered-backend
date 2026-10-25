@@ -34,7 +34,16 @@ public final class MeetupDtos {
             /** Attendees bringing a pet. */
             long petCount,
             /** Whether the viewer RSVP'd with their pet. */
-            boolean bringingPet) {
+            boolean bringingPet,
+            Instant endsAt,
+            /** upcoming | live | ended. RSVPs close once it starts. */
+            String status,
+            /** Pack chat for members: locked | open | closed (read-only). */
+            String chatState,
+            Instant chatOpensAt,
+            Instant chatClosesAt,
+            /** Messages from others the viewer hasn't seen (members only). */
+            long chatUnread) {
     }
 
     /** Create payload. Extra client fields (hostName, joined, …) are ignored. */

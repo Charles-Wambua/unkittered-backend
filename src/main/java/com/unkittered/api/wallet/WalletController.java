@@ -27,10 +27,12 @@ import java.util.UUID;
 public class WalletController {
 
     private final WalletService wallet;
+    private final PaymentOptions options;
     private final ProfileRepository profiles;
 
-    public WalletController(WalletService wallet, ProfileRepository profiles) {
+    public WalletController(WalletService wallet, PaymentOptions options, ProfileRepository profiles) {
         this.wallet = wallet;
+        this.options = options;
         this.profiles = profiles;
     }
 
@@ -38,31 +40,66 @@ public class WalletController {
         static GiftDto of(Gift g) { return new GiftDto(g.id, g.name, g.emoji, g.paws); }
     }
 
-    public record PackDto(String id, int paws, int bonus, int priceKes) {
-        static PackDto of(PawsPack p) { return new PackDto(p.id, p.paws, p.bonus, p.priceKes); }
+    /**
+     * A Paws pack priced for the member's country. {@code priceKes} is the
+     * M-Pesa price; store purchases use {@code storeProductId}.
+     */
+    public record PackDto(String id, int paws, int bonus, int priceKes, String currency, int priceMinor,
+                          String storeProductId) {
+        static PackDto of(PawsPack p, String currency) {
+            return new PackDto(p.id, p.paws, p.bonus, p.priceKes(), currency, p.priceMinor(currency),
+                    p.storeProductId());
+        }
+    }
+
+    /** A way to pay or get paid; {@code sandbox} = no real money moves. */
+    public record MethodDto(PaymentMethod id, String label, String kind, String needs, boolean sandbox) {
+        static MethodDto of(PaymentMethod m, PaymentOptions o) {
+            return new MethodDto(m, m.label(), m.kind(), m.needs().name().toLowerCase(),
+                    o.mode(m) == PaymentOptions.Mode.SANDBOX);
+        }
     }
 
     public record CatalogDto(List<GiftDto> gifts, List<PackDto> packs, double creatorShare,
-                             double withdrawalFee, int minWithdrawal, boolean mpesaEnabled) { }
+                             double withdrawalFee, int withdrawalFeeFixed, int minWithdrawal, int holdDays,
+                             String country, String currency, double kesPerUnit,
+                             List<MethodDto> topUpMethods, List<MethodDto> payoutMethods,
+                             boolean mpesaEnabled) { }
 
     public record TransactionDto(String id, String kind, String status, int paws, Integer amountKes,
-                                 GiftDto gift, String counterpartyName, String note, Instant createdAt) { }
+                                 GiftDto gift, String counterpartyName, String note, Instant createdAt,
+                                 String method, String currency, Integer amountMinor) { }
 
-    public record WalletDto(int paws, int earned, List<TransactionDto> transactions) { }
+    public record WalletDto(int paws, int earned, int withdrawable, int held, Instant nextReleaseAt,
+                            List<TransactionDto> transactions) { }
 
-    public record TopUpRequest(@NotBlank String packId, @NotBlank String phone) { }
+    /**
+     * Buy a pack. {@code method} defaults to M-Pesa (older apps); M-Pesa needs
+     * {@code phone}, store billing needs {@code purchaseToken}.
+     */
+    public record TopUpRequest(@NotBlank String packId, String method, String phone, String purchaseToken,
+                               String country, String platform) { }
 
-    public record WithdrawRequest(@Min(1) int paws, @NotBlank String phone) { }
+    /** Withdraw. {@code destination}: phone (M-Pesa), email (PayPal) or account (bank). */
+    public record WithdrawRequest(@Min(1) int paws, String method, String destination, String phone,
+                                  String country) { }
 
     public record SendGiftRequest(@NotBlank String toProfileId, @NotBlank String giftId) { }
 
-    @Operation(summary = "Gift and Paws-pack catalogue, and the wallet rules")
+    @Operation(summary = "Gifts, Paws packs priced for the country, payment methods and wallet rules")
     @GetMapping("/wallet/catalog")
-    public CatalogDto catalog() {
+    public CatalogDto catalog(@RequestParam(required = false) String country,
+                              @RequestParam(required = false) String platform) {
+        String c = PaymentOptions.country(country);
+        String currency = PaymentOptions.currencyFor(c);
+        PaymentsProperties rules = options.rules();
         return new CatalogDto(
                 Arrays.stream(Gift.values()).map(GiftDto::of).toList(),
-                Arrays.stream(PawsPack.values()).map(PackDto::of).toList(),
-                WalletCatalog.CREATOR_SHARE, WalletCatalog.WITHDRAWAL_FEE, WalletCatalog.MIN_WITHDRAWAL,
+                Arrays.stream(PawsPack.values()).map(p -> PackDto.of(p, currency)).toList(),
+                rules.getCreatorShare(), rules.getWithdrawalFeePercent(), rules.getWithdrawalFeeFixed(),
+                rules.getMinWithdrawal(), rules.getHoldDays(), c, currency, options.kesPer(currency),
+                options.topUpMethods(c, platform).stream().map(m -> MethodDto.of(m, options)).toList(),
+                options.payoutMethods(c).stream().map(m -> MethodDto.of(m, options)).toList(),
                 wallet.mpesaEnabled());
     }
 
@@ -72,21 +109,24 @@ public class WalletController {
         return toDto(wallet.view(CurrentUser.id()));
     }
 
-    @Operation(summary = "Buy a Paws pack with M-Pesa (STK push to the phone)")
+    @Operation(summary = "Buy a Paws pack (M-Pesa STK push, store purchase, or card)")
     @PostMapping("/me/wallet/top-ups")
     public Map<String, Object> topUp(@Valid @RequestBody TopUpRequest req) {
-        var tx = wallet.startTopUp(CurrentUser.id(), req.packId(), req.phone());
+        var tx = wallet.startTopUp(CurrentUser.id(), new WalletService.TopUpCommand(
+                req.packId(), req.method(), req.phone(), req.purchaseToken(), req.country(), req.platform()));
         return Map.of("status", tx.getStatus(), "wallet", mine());
     }
 
-    @Operation(summary = "Withdraw earned Paws to M-Pesa (min 500, 15% fee)")
+    @Operation(summary = "Withdraw earned Paws (M-Pesa, PayPal or bank; fee and minimum per the catalogue)")
     @PostMapping("/me/wallet/withdrawals")
     public Map<String, Object> withdraw(@Valid @RequestBody WithdrawRequest req) {
-        var tx = wallet.withdraw(CurrentUser.id(), req.paws(), req.phone());
+        String destination = req.destination() != null ? req.destination() : req.phone();
+        var tx = wallet.withdraw(CurrentUser.id(),
+                new WalletService.WithdrawCommand(req.paws(), req.method(), destination, req.country()));
         return Map.of("status", tx.getStatus(), "wallet", mine());
     }
 
-    @Operation(summary = "Send someone a gift (half its price becomes their earnings)")
+    @Operation(summary = "Send someone a gift (a share of its value becomes their earnings)")
     @PostMapping("/gifts")
     public WalletDto sendGift(@Valid @RequestBody SendGiftRequest req) {
         UUID to;
@@ -104,11 +144,13 @@ public class WalletController {
             if (tx.getCounterpartyId() != null) names.putIfAbsent(tx.getCounterpartyId(), null);
         }
         profiles.findAllById(names.keySet()).forEach(p -> names.put(p.getUserId(), displayName(p)));
-        return new WalletDto(v.paws(), v.earned(), v.transactions().stream().map(tx -> new TransactionDto(
-                tx.getId().toString(), tx.getKind(), tx.getStatus(), tx.getPaws(), tx.getAmountKes(),
-                tx.getGiftId() == null ? null : GiftDto.of(Gift.of(tx.getGiftId())),
-                tx.getCounterpartyId() == null ? null : names.get(tx.getCounterpartyId()),
-                tx.getNote(), tx.getCreatedAt())).toList());
+        return new WalletDto(v.paws(), v.earned(), v.withdrawable(), v.held(), v.nextReleaseAt(),
+                v.transactions().stream().map(tx -> new TransactionDto(
+                        tx.getId().toString(), tx.getKind(), tx.getStatus(), tx.getPaws(), tx.getAmountKes(),
+                        tx.getGiftId() == null ? null : GiftDto.of(Gift.of(tx.getGiftId())),
+                        tx.getCounterpartyId() == null ? null : names.get(tx.getCounterpartyId()),
+                        tx.getNote(), tx.getCreatedAt(), tx.getMethod(), tx.getCurrency(),
+                        tx.getAmountMinor())).toList());
     }
 
     private static String displayName(Profile p) {

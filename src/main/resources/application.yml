@@ -73,6 +73,61 @@ unkittered:
     b2c-shortcode: ${UNKITTERED_MPESA_B2C_SHORTCODE:}
     initiator-name: ${UNKITTERED_MPESA_INITIATOR_NAME:}
     security-credential: ${UNKITTERED_MPESA_SECURITY_CREDENTIAL:}
+  payments:
+    # Money rules (1 earned Paw = KES 1).
+    creator-share: ${UNKITTERED_CREATOR_SHARE:0.5}
+    withdrawal-fee-percent: ${UNKITTERED_WITHDRAWAL_FEE_PERCENT:0.15}
+    withdrawal-fee-fixed: ${UNKITTERED_WITHDRAWAL_FEE_FIXED:0}
+    min-withdrawal: ${UNKITTERED_MIN_WITHDRAWAL:500}
+    # Days gift earnings wait before they can be withdrawn (refund/chargeback cover).
+    hold-days: ${UNKITTERED_EARNINGS_HOLD_DAYS:7}
+    # net: creators earn a share of what was actually paid, after store fees.
+    # face: 1 Paw = KES 1 regardless (can pay out more than was received).
+    earnings-basis: ${UNKITTERED_EARNINGS_BASIS:net}
+    kes-per:
+      KES: 1
+      USD: ${UNKITTERED_KES_PER_USD:130}
+      EUR: ${UNKITTERED_KES_PER_EUR:140}
+      GBP: ${UNKITTERED_KES_PER_GBP:165}
+    # Each provider: mode disabled | sandbox (no money moves) | live, the
+    # countries it's offered in ("*" = all), what it's for, and whether it may
+    # be offered inside the app for buying Paws (store rules: usually only
+    # Google Play / App Store may sell in-app currency).
+    providers:
+      mpesa:
+        # auto = follow unkittered.mpesa.mode (dev → sandbox, daraja → live).
+        mode: ${UNKITTERED_PAY_MPESA:auto}
+        countries: ${UNKITTERED_PAY_MPESA_COUNTRIES:KE}
+        top-ups: true
+        payouts: true
+        in-app: ${UNKITTERED_PAY_MPESA_IN_APP:true}
+        fee-percent: ${UNKITTERED_PAY_MPESA_FEE:0}
+      google-play:
+        mode: ${UNKITTERED_PAY_GOOGLE_PLAY:disabled}
+        countries: ${UNKITTERED_PAY_GOOGLE_PLAY_COUNTRIES:*}
+        top-ups: true
+        in-app: true
+        fee-percent: ${UNKITTERED_PAY_GOOGLE_PLAY_FEE:0.15}
+      app-store:
+        mode: ${UNKITTERED_PAY_APP_STORE:disabled}
+        countries: ${UNKITTERED_PAY_APP_STORE_COUNTRIES:*}
+        top-ups: true
+        in-app: true
+        fee-percent: ${UNKITTERED_PAY_APP_STORE_FEE:0.15}
+      card:
+        mode: ${UNKITTERED_PAY_CARD:disabled}
+        countries: ${UNKITTERED_PAY_CARD_COUNTRIES:*}
+        top-ups: true
+        in-app: ${UNKITTERED_PAY_CARD_IN_APP:false}
+        fee-percent: ${UNKITTERED_PAY_CARD_FEE:0.04}
+      paypal:
+        mode: ${UNKITTERED_PAY_PAYPAL:disabled}
+        countries: ${UNKITTERED_PAY_PAYPAL_COUNTRIES:*}
+        payouts: true
+      bank:
+        mode: ${UNKITTERED_PAY_BANK:disabled}
+        countries: ${UNKITTERED_PAY_BANK_COUNTRIES:*}
+        payouts: true
   billing:
     # Activate tiers from a bare product id, with no store receipt check.
     # LOCAL TESTING ONLY: real App Store / Play validation must replace this.

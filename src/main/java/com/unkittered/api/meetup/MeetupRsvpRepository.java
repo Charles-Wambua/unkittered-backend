@@ -13,6 +13,7 @@ public interface MeetupRsvpRepository extends JpaRepository<MeetupRsvp, UUID> {
 
     boolean existsByMeetupIdAndUserId(UUID meetupId, UUID userId);
     List<MeetupRsvp> findByMeetupId(UUID meetupId);
+    List<MeetupRsvp> findByUserId(UUID userId);
     List<MeetupRsvp> findByMeetupIdAndReminded24hFalse(UUID meetupId);
     List<MeetupRsvp> findByMeetupIdAndReminded1hFalse(UUID meetupId);
     void deleteByMeetupIdAndUserId(UUID meetupId, UUID userId);
