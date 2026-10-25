@@ -54,6 +54,21 @@ public class ChatController {
         return chat.send(CurrentUser.id(), parseId(matchId), req);
     }
 
+    public record RatePlanRequest(@jakarta.validation.constraints.NotBlank String rating) { }
+
+    @Operation(summary = "My private feedback on this chat's past dates (plan id → good | bad)")
+    @GetMapping("/conversations/{matchId}/plan-feedback")
+    public Map<String, String> planFeedback(@PathVariable String matchId) {
+        return chat.planFeedback(CurrentUser.id(), parseId(matchId));
+    }
+
+    @Operation(summary = "How was the date? (confirmed plans, once they're over; private)")
+    @PutMapping("/conversations/{matchId}/plans/{planId}/feedback")
+    public Map<String, String> ratePlan(@PathVariable String matchId, @PathVariable String planId,
+                                        @Valid @RequestBody RatePlanRequest body) {
+        return chat.ratePlan(CurrentUser.id(), parseId(matchId), planId, body.rating());
+    }
+
     @Operation(summary = "Date Concierge: ideas grounded in what you share (Gold sees all three)")
     @PostMapping("/conversations/{matchId}/date-plans")
     public ChatService.ConciergeResult datePlans(@PathVariable String matchId) {

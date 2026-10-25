@@ -22,7 +22,12 @@ class RichMessagesTest {
 
     private static RichMessages.Prepared prepare(Kind kind, String text, Map<String, Object> payload) {
         return RichMessages.prepare(kind, text, payload, ME,
-                id -> "p1".equals(id) ? new PlanRef(THEM) : "mine".equals(id) ? new PlanRef(ME) : null,
+                id -> switch (id) {
+                    case "p1" -> new PlanRef(THEM, NOW.plusSeconds(86_400));
+                    case "mine" -> new PlanRef(ME, NOW.plusSeconds(86_400));
+                    case "past" -> new PlanRef(THEM, NOW.minusSeconds(60));
+                    default -> null;
+                },
                 url -> url.startsWith("/files/"), NOW);
     }
 
@@ -76,6 +81,12 @@ class RichMessagesTest {
                 .hasMessageContaining("own plan");
         assertThatThrownBy(() -> prepare(Kind.PLAN_RESPONSE, null, Map.of("planId", "nope", "accepted", true)))
                 .hasMessageContaining("isn't in this conversation");
+    }
+
+    @Test
+    void aPlanCannotBeAnsweredOnceItHasStarted() {
+        assertThatThrownBy(() -> prepare(Kind.PLAN_RESPONSE, null, Map.of("planId", "past", "accepted", true)))
+                .hasMessageContaining("already passed");
     }
 
     @Test

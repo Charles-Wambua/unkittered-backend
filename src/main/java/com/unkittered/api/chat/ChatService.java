@@ -39,14 +39,16 @@ public class ChatService {
     private final SubscriptionService subscriptions;
     private final PushService push;
     private final PetRepository pets;
+    private final PlanFeedbackRepository feedback;
     /** Public base our storage serves media from (may be empty = relative URLs). */
     private final String mediaBase;
 
     public ChatService(MatchRepository matches, MessageRepository messages,
                        ProfileRepository profiles, ProfileMapper mapper,
                        RealtimeGateway realtime, SubscriptionService subscriptions,
-                       PushService push, PetRepository pets,
+                       PushService push, PetRepository pets, PlanFeedbackRepository feedback,
                        @Value("${unkittered.storage.public-base-url:}") String mediaBase) {
+        this.feedback = feedback;
         this.mediaBase = mediaBase.replaceAll("/+$", "");
         this.matches = matches;
         this.messages = messages;
@@ -197,8 +199,54 @@ public class ChatService {
         return messages.findByMatchIdAndKindOrderByCreatedAtAsc(matchId, RichMessages.Kind.PLAN.wire()).stream()
                 .filter(m -> m.getPayload() != null && planId.equals(m.getPayload().get("id")))
                 .findFirst()
-                .map(m -> new RichMessages.PlanRef(m.getSenderId()))
+                .map(m -> new RichMessages.PlanRef(m.getSenderId(), planStart(m.getPayload())))
                 .orElse(null);
+    }
+
+    private static Instant planStart(Map<String, Object> payload) {
+        Object raw = payload == null ? null : payload.get("startsAt");
+        try {
+            return raw == null ? null : Instant.parse(raw.toString());
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    /** My private feedback on this chat's past dates: plan id → good | bad. */
+    @Transactional(readOnly = true)
+    public Map<String, String> planFeedback(UUID viewerId, UUID matchId) {
+        requireMembership(matchId, viewerId);
+        Map<String, String> out = new java.util.HashMap<>();
+        feedback.findByUserIdAndMatchId(viewerId, matchId).forEach(f -> out.put(f.getPlanId(), f.getRating()));
+        return out;
+    }
+
+    /** "How was it?" — only for an accepted plan whose time is over. */
+    @Transactional
+    public Map<String, String> ratePlan(UUID viewerId, UUID matchId, String planId, String rating) {
+        requireMembership(matchId, viewerId);
+        if (!"good".equals(rating) && !"bad".equals(rating)) {
+            throw ApiException.badRequest("rating must be good or bad");
+        }
+        Message plan = messages.findByMatchIdAndKindOrderByCreatedAtAsc(matchId, RichMessages.Kind.PLAN.wire()).stream()
+                .filter(m -> m.getPayload() != null && planId.equals(m.getPayload().get("id")))
+                .findFirst()
+                .orElseThrow(() -> ApiException.badRequest("That plan isn't in this conversation"));
+        boolean accepted = messages.findByMatchIdAndKindOrderByCreatedAtAsc(matchId, RichMessages.Kind.PLAN_RESPONSE.wire())
+                .stream().anyMatch(r -> r.getPayload() != null && planId.equals(r.getPayload().get("planId"))
+                        && Boolean.TRUE.equals(r.getPayload().get("accepted")));
+        if (!accepted) throw ApiException.badRequest("Only confirmed plans can be rated");
+        Instant start = planStart(plan.getPayload());
+        Object minutes = plan.getPayload().get("durationMinutes");
+        Instant end = start == null ? null
+                : start.plus(java.time.Duration.ofMinutes(minutes instanceof Number n ? n.longValue() : 90));
+        if (end == null || Instant.now().isBefore(end)) {
+            throw ApiException.badRequest("You can say how it went once the date is over");
+        }
+        feedback.findById(new PlanFeedback.Key(viewerId, planId)).ifPresentOrElse(
+                f -> f.setRating(rating),
+                () -> feedback.save(new PlanFeedback(viewerId, matchId, planId, rating)));
+        return planFeedback(viewerId, matchId);
     }
 
     /** The latest plan in a conversation and whether it was answered. */

@@ -47,7 +47,8 @@ public final class RichMessages {
     }
 
     /** A plan that a response may refer to: who proposed it. */
-    public record PlanRef(UUID proposerId) { }
+    /** A plan already in the chat: who proposed it and when it starts. */
+    public record PlanRef(UUID proposerId, Instant startsAt) { }
 
     /** The validated message, ready to persist. */
     public record Prepared(Kind kind, String body, Map<String, Object> payload) {
@@ -121,6 +122,9 @@ public final class RichMessages {
                 if (plan == null) throw ApiException.badRequest("That plan isn't in this conversation");
                 if (plan.proposerId().equals(senderId)) {
                     throw ApiException.badRequest("You can't answer your own plan");
+                }
+                if (plan.startsAt() != null && !now.isBefore(plan.startsAt())) {
+                    throw ApiException.badRequest("This plan has already passed. Suggest a new one?");
                 }
                 yield new Prepared(kind, accepted ? "✅ Plan accepted" : "Maybe another time",
                         ordered("planId", planId, "accepted", accepted));
