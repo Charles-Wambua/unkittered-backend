@@ -60,6 +60,46 @@ public class MeetupController {
         return chat.arrived(parseId(id), CurrentUser.id());
     }
 
+    @Operation(summary = "Pack chat: edit my text message (within 15 minutes)")
+    @PatchMapping("/{id}/messages/{messageId}")
+    public PackChatService.PackMessageDto editMessage(@PathVariable String id, @PathVariable String messageId,
+                                                      @Valid @RequestBody PackChatService.EditRequest body) {
+        return chat.edit(parseId(id), CurrentUser.id(), parseId(messageId), body.text());
+    }
+
+    @Operation(summary = "Pack chat: react to a message (one emoji per person)")
+    @PutMapping("/{id}/messages/{messageId}/reaction")
+    public PackChatService.PackMessageDto react(@PathVariable String id, @PathVariable String messageId,
+                                                @Valid @RequestBody PackChatService.ReactRequest body) {
+        return chat.react(parseId(id), CurrentUser.id(), parseId(messageId), body.emoji());
+    }
+
+    @Operation(summary = "Pack chat: remove my reaction")
+    @DeleteMapping("/{id}/messages/{messageId}/reaction")
+    public PackChatService.PackMessageDto unreact(@PathVariable String id, @PathVariable String messageId) {
+        return chat.react(parseId(id), CurrentUser.id(), parseId(messageId), null);
+    }
+
+    @Operation(summary = "Pack chat: ask a poll (2–6 options)")
+    @PostMapping("/{id}/polls")
+    public PackChatService.PackMessageDto createPoll(@PathVariable String id,
+                                                     @Valid @RequestBody PackChatService.PollRequest body) {
+        return chat.createPoll(parseId(id), CurrentUser.id(), body);
+    }
+
+    @Operation(summary = "Pack chat: vote in a poll (the same option again takes the vote back)")
+    @PostMapping("/{id}/polls/{pollId}/vote")
+    public PackChatService.PackMessageDto vote(@PathVariable String id, @PathVariable String pollId,
+                                               @RequestBody PackChatService.VoteRequest body) {
+        return chat.vote(parseId(id), CurrentUser.id(), parseId(pollId), body.option());
+    }
+
+    @Operation(summary = "Pack chat: close a poll (whoever asked, or the host)")
+    @PostMapping("/{id}/polls/{pollId}/close")
+    public PackChatService.PackMessageDto closePoll(@PathVariable String id, @PathVariable String pollId) {
+        return chat.closePoll(parseId(id), CurrentUser.id(), parseId(pollId));
+    }
+
     @Operation(summary = "Pack chat: delete a message (your own on Gold; the host can delete any)")
     @DeleteMapping("/{id}/messages/{messageId}")
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)

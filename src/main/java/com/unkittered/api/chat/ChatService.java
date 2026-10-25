@@ -41,6 +41,7 @@ public class ChatService {
     private final PetRepository pets;
     private final PlanFeedbackRepository feedback;
     private final ChatClearRepository clears;
+    private final MessageReactionRepository reactions;
     /** Public base our storage serves media from (may be empty = relative URLs). */
     private final String mediaBase;
 
@@ -48,10 +49,11 @@ public class ChatService {
                        ProfileRepository profiles, ProfileMapper mapper,
                        RealtimeGateway realtime, SubscriptionService subscriptions,
                        PushService push, PetRepository pets, PlanFeedbackRepository feedback,
-                       ChatClearRepository clears,
+                       ChatClearRepository clears, MessageReactionRepository reactions,
                        @Value("${unkittered.storage.public-base-url:}") String mediaBase) {
         this.feedback = feedback;
         this.clears = clears;
+        this.reactions = reactions;
         this.mediaBase = mediaBase.replaceAll("/+$", "");
         this.matches = matches;
         this.messages = messages;
@@ -112,9 +114,14 @@ public class ChatService {
                 .toList();
         Map<UUID, Message> byId = new java.util.HashMap<>();
         all.forEach(m -> byId.put(m.getId(), m));
+        Map<UUID, List<MessageReaction>> reacted = new java.util.HashMap<>();
+        reactions.findByMessageIdIn(byId.keySet())
+                .forEach(r -> reacted.computeIfAbsent(r.getMessageId(), k -> new java.util.ArrayList<>()).add(r));
         return all.stream()
                 .map(m -> MessageDto.from(m, viewerId,
-                        m.getReplyToId() == null ? null : byId.get(m.getReplyToId())))
+                        m.getReplyToId() == null ? null : byId.get(m.getReplyToId()),
+                        Reactions.group(reacted.getOrDefault(m.getId(), List.of()),
+                                MessageReaction::getEmoji, MessageReaction::getUserId)))
                 .toList();
     }
 
@@ -237,6 +244,60 @@ public class ChatService {
             return m.getPayload().get("emoji") + " You sent a " + m.getPayload().get("name");
         }
         return m.getBody();
+    }
+
+    /** Edits my text message, within {@link Reactions#EDIT_WINDOW} of sending. */
+    @Transactional
+    public MessageDto edit(UUID viewerId, UUID matchId, UUID messageId, String text) {
+        Match match = requireMembership(matchId, viewerId);
+        Message m = inChat(matchId, messageId);
+        if (!m.getSenderId().equals(viewerId)) throw ApiException.forbidden("You can only edit your own messages.");
+        if (m.isDeleted() || !RichMessages.Kind.TEXT.wire().equals(m.getKind())) {
+            throw ApiException.badRequest("Only text messages can be edited.");
+        }
+        Reactions.requireEditable(m.getCreatedAt(), Instant.now());
+        String t = text.strip();
+        if (t.isEmpty()) throw ApiException.badRequest("Write a message first.");
+        boolean isGold = "gold".equalsIgnoreCase(subscriptions.tierOf(viewerId));
+        MessageModeration.Flag flag = MessageModeration.check(t, isGold);
+        if (flag != MessageModeration.Flag.CLEAN) throw ApiException.badRequest(MessageModeration.reason(flag));
+        m.edit(t);
+        return pushUpdate(match, viewerId, m);
+    }
+
+    /** Reacts to any message in the chat ({@code emoji} null removes mine). */
+    @Transactional
+    public MessageDto react(UUID viewerId, UUID matchId, UUID messageId, String emoji) {
+        Match match = requireMembership(matchId, viewerId);
+        Message m = inChat(matchId, messageId);
+        if (m.isDeleted()) throw ApiException.badRequest("That message was deleted.");
+        var key = new MessageReaction.Key(messageId, viewerId);
+        if (emoji == null) {
+            reactions.deleteById(key);
+        } else {
+            String e = Reactions.validate(emoji);
+            reactions.findById(key).ifPresentOrElse(r -> r.setEmoji(e),
+                    () -> reactions.save(new MessageReaction(messageId, viewerId, e)));
+        }
+        reactions.flush();
+        return pushUpdate(match, viewerId, m);
+    }
+
+    /** Sends the changed message to the other person live; returns it for me. */
+    private MessageDto pushUpdate(Match match, UUID viewerId, Message m) {
+        Message repliedTo = m.getReplyToId() == null ? null : messages.findById(m.getReplyToId()).orElse(null);
+        Map<String, List<String>> who = Reactions.group(reactions.findByMessageId(m.getId()),
+                MessageReaction::getEmoji, MessageReaction::getUserId);
+        UUID other = otherUserId(match, viewerId);
+        realtime.sendToUser(other, Map.of("type", "message_updated", "matchId", match.getId().toString(),
+                "message", MessageDto.from(m, other, repliedTo, who)));
+        return MessageDto.from(m, viewerId, repliedTo, who);
+    }
+
+    private Message inChat(UUID matchId, UUID messageId) {
+        return messages.findById(messageId)
+                .filter(x -> x.getMatchId().equals(matchId))
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
     }
 
     /** Deletes my message for both of us (Gold). */

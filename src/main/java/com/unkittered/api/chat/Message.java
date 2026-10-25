@@ -42,6 +42,10 @@ public class Message {
     @Column(name = "reply_to_id")
     private UUID replyToId;
 
+    /** Set when the sender edited the text. */
+    @Column(name = "edited_at")
+    private Instant editedAt;
+
     /** Deleted for everyone (Gold); the place in the thread stays. */
     @Column(name = "deleted_at")
     private Instant deletedAt;
@@ -75,6 +79,12 @@ public class Message {
     public void setReadAt(Instant readAt) { this.readAt = readAt; }
     public UUID getReplyToId() { return replyToId; }
     public boolean isDeleted() { return deletedAt != null; }
+    public Instant getEditedAt() { return editedAt; }
+
+    void edit(String text) {
+        body = text;
+        editedAt = Instant.now();
+    }
 
     void delete() {
         deletedAt = Instant.now();

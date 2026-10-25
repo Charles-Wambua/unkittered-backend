@@ -69,6 +69,26 @@ public class ChatController {
         return chat.ratePlan(CurrentUser.id(), parseId(matchId), planId, body.rating());
     }
 
+    @Operation(summary = "Edit my text message (within 15 minutes of sending)")
+    @PatchMapping("/conversations/{matchId}/messages/{messageId}")
+    public MessageDto edit(@PathVariable String matchId, @PathVariable String messageId,
+                           @Valid @RequestBody ChatDtos.EditMessageRequest body) {
+        return chat.edit(CurrentUser.id(), parseId(matchId), parseId(messageId), body.text());
+    }
+
+    @Operation(summary = "React to a message (one emoji per person; sending another replaces it)")
+    @PutMapping("/conversations/{matchId}/messages/{messageId}/reaction")
+    public MessageDto react(@PathVariable String matchId, @PathVariable String messageId,
+                            @Valid @RequestBody ChatDtos.ReactRequest body) {
+        return chat.react(CurrentUser.id(), parseId(matchId), parseId(messageId), body.emoji());
+    }
+
+    @Operation(summary = "Remove my reaction from a message")
+    @DeleteMapping("/conversations/{matchId}/messages/{messageId}/reaction")
+    public MessageDto unreact(@PathVariable String matchId, @PathVariable String messageId) {
+        return chat.react(CurrentUser.id(), parseId(matchId), parseId(messageId), null);
+    }
+
     @Operation(summary = "Delete my message for both of us (Gold)")
     @DeleteMapping("/conversations/{matchId}/messages/{messageId}")
     @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)

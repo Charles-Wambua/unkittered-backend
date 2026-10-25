@@ -70,9 +70,18 @@ public final class ChatDtos {
             Map<String, Object> payload,
             ReplyQuote replyTo,
             /** Deleted by its sender: shown as "This message was deleted". */
-            boolean deleted) {
+            boolean deleted,
+            /** When the sender last edited it, or null. */
+            Instant editedAt,
+            /** emoji → user ids who reacted with it. */
+            Map<String, java.util.List<String>> reactions) {
 
         public static MessageDto from(Message m, java.util.UUID viewerId, Message repliedTo) {
+            return from(m, viewerId, repliedTo, Map.of());
+        }
+
+        public static MessageDto from(Message m, java.util.UUID viewerId, Message repliedTo,
+                                      Map<String, java.util.List<String>> reactions) {
             return new MessageDto(
                     m.getId().toString(),
                     m.getSenderId().equals(viewerId),
@@ -82,7 +91,9 @@ public final class ChatDtos {
                     RichMessages.Kind.fromWire(m.getKind()),
                     m.getPayload(),
                     m.isDeleted() ? null : ReplyQuote.of(repliedTo),
-                    m.isDeleted());
+                    m.isDeleted(),
+                    m.getEditedAt(),
+                    m.isDeleted() ? Map.of() : reactions);
         }
     }
 
@@ -90,6 +101,10 @@ public final class ChatDtos {
      * Send a message. Plain text needs only {@code text}; other kinds put their
      * fields in {@code payload} (see {@link RichMessages}).
      */
+    public record EditMessageRequest(@jakarta.validation.constraints.NotBlank @Size(max = 4000) String text) { }
+
+    public record ReactRequest(@jakarta.validation.constraints.NotBlank String emoji) { }
+
     public record SendMessageRequest(
             @Size(max = 4000) String text,
             RichMessages.Kind kind,

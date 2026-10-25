@@ -1,6 +1,7 @@
 package com.unkittered.api.meetup;
 
 import com.unkittered.api.chat.MessageModeration;
+import com.unkittered.api.chat.Reactions;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileRepository;
@@ -14,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,6 +44,9 @@ public class PackChatService {
     public static final String TEXT = "text";
     public static final String ARRIVAL = "arrival";
     public static final String MEETING_POINT = "meeting_point";
+    public static final String POLL = "poll";
+
+    private static final int MAX_POLL_OPTIONS = 6;
 
     private final MeetupRepository meetups;
     private final MeetupRsvpRepository rsvps;
@@ -50,11 +56,16 @@ public class PackChatService {
     private final SubscriptionService subscriptions;
     private final RealtimeGateway realtime;
     private final PushService push;
+    private final PackMessageReactionRepository reactions;
+    private final PollVoteRepository votes;
 
     public PackChatService(MeetupRepository meetups, MeetupRsvpRepository rsvps,
                            PackMessageRepository messages, ProfileRepository profiles,
                            MeetupService meetupService, SubscriptionService subscriptions,
-                           RealtimeGateway realtime, PushService push) {
+                           RealtimeGateway realtime, PushService push,
+                           PackMessageReactionRepository reactions, PollVoteRepository votes) {
+        this.reactions = reactions;
+        this.votes = votes;
         this.meetups = meetups;
         this.rsvps = rsvps;
         this.messages = messages;
@@ -68,10 +79,29 @@ public class PackChatService {
     /** Quoted message in a reply. */
     public record Quote(String id, String senderId, String senderName, String text) { }
 
-    /** {@code kind}: text | arrival | meeting_point. Deleted messages keep their place. */
+    /** A poll option and who chose it. */
+    public record PollOption(String text, List<String> voterIds) { }
+
+    /** {@code question} is the message text. */
+    public record PollDto(List<PollOption> options, boolean closed) { }
+
+    /**
+     * {@code kind}: text | arrival | meeting_point | poll. Deleted messages keep
+     * their place. {@code reactions}: emoji → user ids.
+     */
     public record PackMessageDto(String id, String senderId, String senderName, String senderAvatar,
                                  boolean isMe, String text, Instant createdAt, Quote replyTo,
-                                 String kind, boolean deleted) { }
+                                 String kind, boolean deleted, Instant editedAt,
+                                 Map<String, List<String>> reactions, PollDto poll) { }
+
+    public record EditRequest(@NotBlank @Size(max = MAX_TEXT) String text) { }
+
+    public record ReactRequest(@NotBlank String emoji) { }
+
+    public record PollRequest(@NotBlank @Size(max = 140) String question,
+                              @jakarta.validation.constraints.NotNull List<String> options) { }
+
+    public record VoteRequest(int option) { }
 
     public record ThreadDto(String meetupId, String title, String chatState, Instant chatOpensAt,
                             Instant chatClosesAt, int memberCount, List<PackMessageDto> messages,
@@ -86,6 +116,9 @@ public class PackChatService {
 
     public record PackMessageDeletedPush(String type, String meetupId, String id) { }
 
+    /** Edited text, reactions or poll votes changed. */
+    public record PackMessageUpdatedPush(String type, String meetupId, PackMessageDto message) { }
+
     @Transactional
     public ThreadDto thread(UUID meetupId, UUID viewerId) {
         Meetup m = find(meetupId);
@@ -95,8 +128,15 @@ public class PackChatService {
         Map<UUID, PackMessage> byId = new HashMap<>();
         all.forEach(x -> byId.put(x.getId(), x));
         Names names = new Names();
+        Map<UUID, List<PackMessageReaction>> reacted = new HashMap<>();
+        reactions.findByMessageIdIn(byId.keySet())
+                .forEach(r -> reacted.computeIfAbsent(r.getMessageId(), k -> new ArrayList<>()).add(r));
+        Map<UUID, List<PollVote>> voted = new HashMap<>();
+        votes.findByMessageIdIn(byId.keySet())
+                .forEach(v -> voted.computeIfAbsent(v.getMessageId(), k -> new ArrayList<>()).add(v));
         List<PackMessageDto> out = all.stream()
-                .map(x -> toDto(x, viewerId, x.getReplyToId() == null ? null : byId.get(x.getReplyToId()), names))
+                .map(x -> toDto(x, viewerId, x.getReplyToId() == null ? null : byId.get(x.getReplyToId()), names,
+                        reacted.getOrDefault(x.getId(), List.of()), voted.getOrDefault(x.getId(), List.of())))
                 .toList();
         Instant now = Instant.now();
         boolean arrived = all.stream().anyMatch(x -> ARRIVAL.equals(x.getKind()) && x.getSenderId().equals(viewerId));
@@ -131,7 +171,7 @@ public class PackChatService {
         }
         Names names = new Names();
         var existing = messages.findFirstByMeetupIdAndSenderIdAndKind(meetupId, viewerId, ARRIVAL);
-        if (existing.isPresent()) return toDto(existing.get(), viewerId, null, names);
+        if (existing.isPresent()) return full(existing.get(), viewerId, names);
         PackMessage saved = messages.save(new PackMessage(meetupId, viewerId,
                 "📍 " + names.of(viewerId) + " is here", null).kind(ARRIVAL));
         return broadcast(m, saved, viewerId, null, names);
@@ -151,6 +191,133 @@ public class PackChatService {
             broadcast(m, saved, viewerId, null, null);
         }
         return thread(meetupId, viewerId);
+    }
+
+    /** Edits my text message, within {@link Reactions#EDIT_WINDOW}, while the chat is open. */
+    @Transactional
+    public PackMessageDto edit(UUID meetupId, UUID viewerId, UUID messageId, String text) {
+        Meetup m = find(meetupId);
+        requireMember(m, viewerId);
+        requireOpen(m);
+        PackMessage x = inPack(meetupId, messageId);
+        if (!x.getSenderId().equals(viewerId)) throw ApiException.forbidden("You can only edit your own messages.");
+        if (x.isDeleted() || !TEXT.equals(x.getKind())) throw ApiException.badRequest("Only text messages can be edited.");
+        Reactions.requireEditable(x.getCreatedAt(), Instant.now());
+        String t = text.strip();
+        if (t.isEmpty()) throw ApiException.badRequest("Write a message first.");
+        moderate(t);
+        x.edit(t);
+        return pushUpdate(m, viewerId, x);
+    }
+
+    /** Reacts to a message ({@code emoji} null removes mine). */
+    @Transactional
+    public PackMessageDto react(UUID meetupId, UUID viewerId, UUID messageId, String emoji) {
+        Meetup m = find(meetupId);
+        requireMember(m, viewerId);
+        PackMessage x = inPack(meetupId, messageId);
+        if (x.isDeleted()) throw ApiException.badRequest("That message was deleted.");
+        var key = new PackMessageReaction.Key(messageId, viewerId);
+        if (emoji == null) {
+            reactions.deleteById(key);
+        } else {
+            String e = Reactions.validate(emoji);
+            reactions.findById(key).ifPresentOrElse(r -> r.setEmoji(e),
+                    () -> reactions.save(new PackMessageReaction(messageId, viewerId, e)));
+        }
+        reactions.flush();
+        return pushUpdate(m, viewerId, x);
+    }
+
+    /** Any member can ask the pack something: a question and 2–6 options. */
+    @Transactional
+    public PackMessageDto createPoll(UUID meetupId, UUID viewerId, PollRequest req) {
+        Meetup m = find(meetupId);
+        requireMember(m, viewerId);
+        requireOpen(m);
+        String question = req.question().strip();
+        List<String> options = req.options().stream().map(o -> o == null ? "" : o.strip())
+                .filter(o -> !o.isEmpty()).distinct().toList();
+        if (question.isEmpty()) throw ApiException.badRequest("Ask a question.");
+        if (options.size() < 2 || options.size() > MAX_POLL_OPTIONS) {
+            throw ApiException.badRequest("Give 2 to " + MAX_POLL_OPTIONS + " different options.");
+        }
+        if (options.stream().anyMatch(o -> o.length() > 80)) throw ApiException.badRequest("Keep options short.");
+        moderate(question);
+        options.forEach(PackChatService::moderate);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("options", options);
+        payload.put("closed", false);
+        PackMessage saved = messages.save(new PackMessage(meetupId, viewerId, question, null)
+                .kind(POLL).payload(payload));
+        Names names = new Names();
+        PackMessageDto forOthers = toDto(saved, null, null, names);
+        rsvps.findByMeetupId(meetupId).stream().map(MeetupRsvp::getUserId).filter(id -> !id.equals(viewerId))
+                .forEach(id -> realtime.sendToUser(id, new PackMessagePush("pack_message", meetupId.toString(), forOthers)));
+        push.sendToUsers(rsvps.findByMeetupId(meetupId).stream().map(MeetupRsvp::getUserId)
+                        .filter(id -> !id.equals(viewerId)).toList(), m.getTitle(),
+                "📊 " + names.of(viewerId) + " asked: " + question,
+                Map.of("type", "pack_message", "meetupId", meetupId.toString(), "senderId", viewerId.toString()));
+        return toDto(saved, viewerId, null, names);
+    }
+
+    /** Votes for an option; choosing the same one again takes the vote back. */
+    @Transactional
+    public PackMessageDto vote(UUID meetupId, UUID viewerId, UUID pollId, int option) {
+        Meetup m = find(meetupId);
+        requireMember(m, viewerId);
+        PackMessage x = openPoll(meetupId, pollId);
+        PollDto current = poll(x, List.of());
+        if (option < 0 || option >= current.options().size()) throw ApiException.badRequest("Pick one of the options.");
+        var key = new PollVote.Key(pollId, viewerId);
+        var existing = votes.findById(key);
+        if (existing.isPresent() && existing.get().getOption() == option) {
+            votes.delete(existing.get());
+        } else if (existing.isPresent()) {
+            existing.get().setOption(option);
+        } else {
+            votes.save(new PollVote(pollId, viewerId, option));
+        }
+        votes.flush();
+        return pushUpdate(m, viewerId, x);
+    }
+
+    /** The poll's creator or the host closes it; results stay visible. */
+    @Transactional
+    public PackMessageDto closePoll(UUID meetupId, UUID viewerId, UUID pollId) {
+        Meetup m = find(meetupId);
+        requireMember(m, viewerId);
+        PackMessage x = openPoll(meetupId, pollId);
+        if (!x.getSenderId().equals(viewerId) && !m.getHostId().equals(viewerId)) {
+            throw ApiException.forbidden("Only whoever asked, or the host, can close this poll.");
+        }
+        Map<String, Object> payload = new LinkedHashMap<>(x.getPayload());
+        payload.put("closed", true);
+        x.payload(payload);
+        return pushUpdate(m, viewerId, x);
+    }
+
+    private PackMessage openPoll(UUID meetupId, UUID pollId) {
+        PackMessage x = inPack(meetupId, pollId);
+        if (!POLL.equals(x.getKind()) || x.isDeleted()) throw ApiException.notFound("Poll not found");
+        if (Boolean.TRUE.equals(x.getPayload().get("closed"))) throw ApiException.conflict("This poll is closed.");
+        return x;
+    }
+
+    private PackMessage inPack(UUID meetupId, UUID messageId) {
+        return messages.findById(messageId)
+                .filter(x -> x.getMeetupId().equals(meetupId))
+                .orElseThrow(() -> ApiException.notFound("Message not found"));
+    }
+
+    /** Sends the changed message to the other members live; returns it for me. */
+    private PackMessageDto pushUpdate(Meetup m, UUID viewerId, PackMessage x) {
+        Names names = new Names();
+        PackMessageDto forOthers = full(x, null, names);
+        rsvps.findByMeetupId(m.getId()).stream().map(MeetupRsvp::getUserId).filter(id -> !id.equals(viewerId))
+                .forEach(id -> realtime.sendToUser(id,
+                        new PackMessageUpdatedPush("pack_message_updated", m.getId().toString(), forOthers)));
+        return full(x, viewerId, names);
     }
 
     /**
@@ -219,6 +386,31 @@ public class PackChatService {
     }
 
     private PackMessageDto toDto(PackMessage x, UUID viewerId, PackMessage repliedTo, Names names) {
+        return toDto(x, viewerId, repliedTo, names, List.of(), List.of());
+    }
+
+    /** One message with its reactions and votes loaded. */
+    private PackMessageDto full(PackMessage x, UUID viewerId, Names names) {
+        PackMessage repliedTo = x.getReplyToId() == null ? null : messages.findById(x.getReplyToId()).orElse(null);
+        return toDto(x, viewerId, repliedTo, names, reactions.findByMessageId(x.getId()),
+                votes.findByMessageId(x.getId()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static PollDto poll(PackMessage x, List<PollVote> cast) {
+        if (!POLL.equals(x.getKind()) || x.getPayload() == null) return null;
+        List<String> texts = (List<String>) x.getPayload().getOrDefault("options", List.of());
+        List<PollOption> options = new ArrayList<>();
+        for (int i = 0; i < texts.size(); i++) {
+            final int index = i;
+            options.add(new PollOption(texts.get(i), cast.stream()
+                    .filter(v -> v.getOption() == index).map(v -> v.getUserId().toString()).toList()));
+        }
+        return new PollDto(options, Boolean.TRUE.equals(x.getPayload().get("closed")));
+    }
+
+    private PackMessageDto toDto(PackMessage x, UUID viewerId, PackMessage repliedTo, Names names,
+                                 List<PackMessageReaction> reacted, List<PollVote> cast) {
         Quote quote = null;
         if (repliedTo != null) {
             String body = repliedTo.isDeleted() ? DELETED_TEXT : repliedTo.getBody();
@@ -229,7 +421,10 @@ public class PackChatService {
         return new PackMessageDto(x.getId().toString(), x.getSenderId().toString(), names.of(x.getSenderId()),
                 meetupService.avatarFor(x.getSenderId()), x.getSenderId().equals(viewerId),
                 x.isDeleted() ? DELETED_TEXT : x.getBody(), x.getCreatedAt(), x.isDeleted() ? null : quote,
-                x.getKind(), x.isDeleted());
+                x.getKind(), x.isDeleted(), x.getEditedAt(),
+                x.isDeleted() ? Map.of()
+                        : Reactions.group(reacted, PackMessageReaction::getEmoji, PackMessageReaction::getUserId),
+                x.isDeleted() ? null : poll(x, cast));
     }
 
     private PackMessage replyTarget(UUID meetupId, String replyToId) {

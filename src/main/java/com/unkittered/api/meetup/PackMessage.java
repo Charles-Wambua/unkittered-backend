@@ -1,7 +1,11 @@
 package com.unkittered.api.meetup;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 /** A message in a pack's group chat. */
@@ -33,6 +37,14 @@ public class PackMessage {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "edited_at")
+    private Instant editedAt;
+
+    /** Polls: {"options": [...], "closed": false}. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> payload;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -53,6 +65,18 @@ public class PackMessage {
     public Instant getCreatedAt() { return createdAt; }
     public String getKind() { return kind; }
     public boolean isDeleted() { return deletedAt != null; }
+    public Instant getEditedAt() { return editedAt; }
+    public Map<String, Object> getPayload() { return payload; }
+
+    void edit(String text) {
+        body = text;
+        editedAt = Instant.now();
+    }
+
+    PackMessage payload(Map<String, Object> p) {
+        this.payload = p;
+        return this;
+    }
 
     PackMessage kind(String k) {
         this.kind = k;
