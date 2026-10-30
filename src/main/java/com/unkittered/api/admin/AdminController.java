@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Admin dashboard API. All routes require an admin account (enforced in the service). */
@@ -21,23 +22,49 @@ import java.util.UUID;
 public class AdminController {
 
     private final AdminService admin;
+    private final AdminInsightsService insights;
     private final SterilisationService sterilisation;
 
-    public AdminController(AdminService admin, SterilisationService sterilisation) {
+    public AdminController(AdminService admin, AdminInsightsService insights,
+                           SterilisationService sterilisation) {
         this.admin = admin;
+        this.insights = insights;
         this.sterilisation = sterilisation;
     }
 
-    /** A sterilisation proof awaiting review. */
-    public record PendingProofDto(String userId, String documentUrl, java.time.Instant submittedAt) { }
-
-    @Operation(summary = "Pending sterilisation proofs (gold badge)")
+    @Operation(summary = "Pending sterilisation proofs (gold badge), with the member who sent each")
     @GetMapping("/sterilisation-proofs")
-    public List<PendingProofDto> pendingSterilisationProofs() {
-        admin.requireAdmin();
-        return sterilisation.pending().stream()
-                .map(p -> new PendingProofDto(p.getUserId().toString(), p.getDocumentUrl(), p.getCreatedAt()))
-                .toList();
+    public List<Map<String, Object>> pendingSterilisationProofs() {
+        return insights.pendingProofs();
+    }
+
+    @Operation(summary = "Reports with names, the reporter's details and how often the target was reported")
+    @GetMapping("/reports/detailed")
+    public List<Map<String, Object>> detailedReports() {
+        return insights.reports();
+    }
+
+    @Operation(summary = "Search members by name, email or id (filter: suspended, verified, paying, reported, incomplete)")
+    @GetMapping("/members")
+    public List<Map<String, Object>> members(@RequestParam(defaultValue = "") String q,
+                                             @RequestParam(defaultValue = "") String filter) {
+        return insights.members(q, filter);
+    }
+
+    @Operation(summary = "One member's profile, pets, activity counts and reports against them")
+    @GetMapping("/members/{id}")
+    public Map<String, Object> member(@PathVariable String id) {
+        Map<String, Object> m = insights.member(parseId(id));
+        if (m.isEmpty()) {
+            throw new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "No such member");
+        }
+        return m;
+    }
+
+    @Operation(summary = "Activity, funnel, audience and wallet analytics")
+    @GetMapping("/analytics")
+    public Map<String, Object> analytics() {
+        return insights.analytics();
     }
 
     @Operation(summary = "Approve a sterilisation proof (grants the verified badge; clears the document)")

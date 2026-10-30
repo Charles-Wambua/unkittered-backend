@@ -103,7 +103,7 @@
     .btn.bad:hover{background:var(--acc-soft)}
     .btn.quiet{background:var(--surf2);color:var(--muted)}
     .btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;text-transform:capitalize;background:var(--surf2);color:var(--muted)}
+    .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:var(--surf2);color:var(--muted)}
     .pill.user,.pill.plus,.pill.get{background:var(--pet-soft);color:var(--pet-text)}
     .pill.meetup,.pill.gold,.pill.put,.pill.patch{background:var(--gold-soft);color:var(--gold-text)}
     .pill.post{background:var(--acc-soft);color:var(--acc-text)}
@@ -111,7 +111,7 @@
 
     /* ── Shell ──────────────────────────────────────────── */
     #app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
-    .side{position:sticky;top:0;height:100vh;background:var(--side);color:var(--side-ink);padding:22px 14px;display:flex;flex-direction:column;gap:6px}
+    .side{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--side);color:var(--side-ink);padding:22px 14px;display:flex;flex-direction:column;gap:6px}
     .brand{display:flex;align-items:center;gap:10px;padding:4px 10px 22px}
     .brand-mark{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#D4A843,#C96A3A 60%);flex:none}
     .brand-mark svg{width:20px;height:20px;fill:#F5F0E8}
@@ -154,10 +154,10 @@
     .view{display:none;animation:fade .35s ease}
     .view.active{display:block}
     @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:14px;margin-bottom:18px}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:14px;margin-bottom:18px}
     .stat{background:var(--surf);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-    .stat .l{color:var(--muted);font-size:12.5px;font-weight:500}
-    .stat .n{font:700 28px/1.1 var(--sans);letter-spacing:-.02em;margin-top:8px;font-variant-numeric:tabular-nums}
+    .stat .l{color:var(--muted);font-size:12.5px;font-weight:500;padding-right:36px;min-height:36px}
+    .stat .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:700 clamp(20px,2vw,27px)/1.15 var(--sans);letter-spacing:-.02em;margin-top:8px;font-variant-numeric:tabular-nums}
     .stat .tag{position:absolute;right:14px;top:14px;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--surf2);color:var(--muted)}
     .stat .tag svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     .stat.alert{border-color:color-mix(in srgb,var(--acc) 40%,var(--line))}
@@ -211,8 +211,51 @@
     .seg button{border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:7px 14px;border-radius:999px}
     .seg button.on{background:var(--surf);color:var(--ink);box-shadow:var(--shadow)}
 
+    /* Member cards, drawer, analytics */
+    .mcard{display:flex;gap:14px;align-items:flex-start;min-width:260px}
+    .mcard .ph{width:64px;height:64px;border-radius:18px;object-fit:cover;background:var(--surf2);flex:none;cursor:zoom-in}
+    .mcard b{font-size:15px}
+    .meta-line{color:var(--muted);font-size:12.5px;margin-top:2px}
+    .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+    .doc-prev{width:120px;height:120px;border-radius:16px;object-fit:cover;background:var(--surf2);cursor:zoom-in;display:block}
+    .linkish{background:none;border:0;padding:0;color:var(--acc-text);font-weight:600;font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+    .quote{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:13px;margin-top:6px;max-width:460px;white-space:pre-wrap}
+    .who-line{font-size:13px}
+    .who-line .arrow{color:var(--muted);margin:0 6px}
+    .search{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+    .search .input{margin:0;max-width:360px;padding:11px 14px}
+    tr.click{cursor:pointer}
+    .drawer-scrim{position:fixed;inset:0;background:rgba(10,8,6,.45);z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
+    .drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--bg);z-index:51;transform:translateX(102%);transition:transform .28s cubic-bezier(.2,.8,.2,1);overflow-y:auto;box-shadow:-20px 0 60px rgba(0,0,0,.25)}
+    .drawer.on{transform:none}
+    .drawer-scrim.on{opacity:1;pointer-events:auto}
+    .drawer-head{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line);z-index:1}
+    .drawer-body{padding:20px}
+    .hero-ph{display:flex;gap:16px;align-items:center;margin-bottom:16px}
+    .hero-ph img{width:96px;height:96px;border-radius:26px;object-fit:cover;background:var(--surf2);cursor:zoom-in}
+    .hero-ph h3{font:700 30px/1.05 var(--serif);margin:0}
+    .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+    .gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;background:var(--surf2);cursor:zoom-in}
+    .mini{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+    .mini div{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:center}
+    .mini b{display:block;font-size:19px}
+    .mini span{font-size:11px;color:var(--muted)}
+    .sec-t{font-weight:700;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:20px 0 8px}
+    .hbars{display:flex;flex-direction:column;gap:10px}
+    .hbar{display:grid;grid-template-columns:minmax(64px,108px) minmax(48px,1fr) 80px;gap:12px;align-items:center;font-size:13px}
+    .hbar .lab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .hbar .tr{height:10px;border-radius:6px;background:var(--surf2);overflow:hidden}
+    .hbar .tr span{display:block;height:100%;border-radius:6px;background:var(--acc)}
+    .hbar .val{font-weight:600;font-variant-numeric:tabular-nums;min-width:70px;text-align:right}
+    .hbar .val small{color:var(--muted);font-weight:400;margin-left:4px}
+    .funnel .hbar .tr{height:22px;border-radius:8px}
+    .funnel .hbar .tr span{border-radius:8px;background:linear-gradient(90deg,var(--gold),var(--acc))}
+    .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;margin-bottom:16px}
+    .grid3 .panel{margin-bottom:0}
+    .inline-err{color:var(--acc-text);font-size:13px;padding:10px 0}
+
     /* Lightbox + toast */
-    .lightbox{position:fixed;inset:0;background:rgba(10,8,6,.82);display:none;align-items:center;justify-content:center;z-index:60;padding:24px;cursor:zoom-out}
+    .lightbox{position:fixed;inset:0;background:rgba(10,8,6,.82);display:none;align-items:center;justify-content:center;z-index:65;padding:24px;cursor:zoom-out}
     .lightbox.on{display:flex}
     .lightbox img{max-width:min(92vw,900px);max-height:88vh;border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
     .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:999px;font-weight:600;font-size:13.5px;opacity:0;pointer-events:none;transition:all .25s;z-index:70;box-shadow:var(--shadow)}
@@ -271,6 +314,8 @@
       <button class="nav-item active" data-view="overview" onclick="go('overview')"><span class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg></span>Overview</button>
       <button class="nav-item" data-view="review" onclick="go('review')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></span>Review queue<span class="count" id="navReview"></span></button>
       <button class="nav-item" data-view="reports" onclick="go('reports')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg></span>Reports<span class="count" id="navReports"></span></button>
+      <button class="nav-item" data-view="members" onclick="go('members')"><span class="ni"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.2.6 3.5 2.6 3.5 6"/></svg></span>Members</button>
+      <button class="nav-item" data-view="analytics" onclick="go('analytics')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>Analytics</button>
       <button class="nav-item" data-view="revenue" onclick="go('revenue')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>Growth &amp; revenue</button>
       <button class="nav-item" data-view="system" onclick="go('system')"><span class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>System &amp; traffic</button>
       <div class="side-foot">
@@ -327,6 +372,47 @@
         </div>
       </section>
 
+      <!-- Members -->
+      <section class="view" id="view-members">
+        <div class="panel">
+          <div class="search">
+            <input class="input" id="memberQ" placeholder="Search name, email or member id" oninput="searchMembersSoon()" />
+            <div class="seg" id="memberFilter">
+              <button class="on" data-f="" onclick="setFilter(this)">All</button>
+              <button data-f="reported" onclick="setFilter(this)">Reported</button>
+              <button data-f="suspended" onclick="setFilter(this)">Suspended</button>
+              <button data-f="verified" onclick="setFilter(this)">Verified</button>
+              <button data-f="paying" onclick="setFilter(this)">Paying</button>
+              <button data-f="incomplete" onclick="setFilter(this)">Not onboarded</button>
+            </div>
+          </div>
+          <div class="tbl" id="members"><div class="empty">Loading…</div></div>
+          <p class="muted" style="font-size:12.5px;margin:10px 0 0">Shows the 50 newest matches. Click a row to open the full profile.</p>
+        </div>
+      </section>
+
+      <!-- Analytics -->
+      <section class="view" id="view-analytics">
+        <div id="analyticsErr" class="inline-err hidden"></div>
+        <div class="cards" id="activityCards"></div>
+        <div class="grid32">
+          <div class="panel"><h2>Sign-ups <span class="muted">· last 30 days</span></h2><div class="chart-box"><canvas id="chart4"></canvas></div></div>
+          <div class="panel"><h2>Funnel <span class="muted">· share of all sign-ups</span></h2><div class="hbars funnel" id="funnel"></div></div>
+        </div>
+        <div class="panel"><h2>Last 7 days</h2><div class="cards" id="weekCards" style="margin:0"></div></div>
+        <div class="grid3">
+          <div class="panel"><h2>Pledge</h2><div class="hbars" id="bdPledge"></div></div>
+          <div class="panel"><h2>Here for</h2><div class="hbars" id="bdMode"></div></div>
+          <div class="panel"><h2>Age</h2><div class="hbars" id="bdAge"></div></div>
+        </div>
+        <div class="grid3">
+          <div class="panel"><h2>Top locations</h2><div class="hbars" id="bdLoc"></div></div>
+          <div class="panel"><h2>Animals</h2><div class="hbars" id="bdSpecies"></div></div>
+          <div class="panel"><h2>Plans</h2><div class="hbars" id="bdTier"></div></div>
+        </div>
+        <div class="panel"><h2>Paws wallet <span class="muted">· last 30 days</span></h2><div class="cards" id="walletCards" style="margin:0"></div></div>
+      </section>
+
       <!-- Revenue -->
       <section class="view" id="view-revenue">
         <div class="note">Revenue is an estimate from active memberships; there's no payments ledger in this view yet.</div>
@@ -357,6 +443,15 @@
     </main>
   </div>
 
+  <div class="drawer-scrim" id="drawerScrim" onclick="closeMember()"></div>
+  <aside class="drawer" id="drawer" aria-label="Member profile">
+    <div class="drawer-head">
+      <b style="flex:1">Member profile</b>
+      <button class="btn ghost sm" onclick="closeMember()">Close</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+
   <div class="lightbox" id="lightbox" onclick="this.classList.remove('on')"><img id="lightboxImg" alt="" /></div>
   <div class="toast" id="toast" role="status"></div>
 
@@ -378,7 +473,8 @@
     let lastData = {};
     const TITLES = {
       overview:'Good <em>day</em>', review:'Review <em>queue</em>', reports:'<em>Reports</em>',
-      revenue:'Growth &amp; <em>revenue</em>', system:'System &amp; <em>traffic</em>'
+      revenue:'Growth &amp; <em>revenue</em>', system:'System &amp; <em>traffic</em>',
+      members:'<em>Members</em>', analytics:'<em>Analytics</em>'
     };
 
     function setApi(v){
@@ -413,6 +509,8 @@
       document.getElementById('viewTitle').innerHTML = view==='overview' ? greeting() : TITLES[view];
       toggleNav(false);
       try{ sessionStorage.setItem('admin_view', view); }catch(_){}
+      if(view==='members' && !go._members){ go._members=true; searchMembers(); }
+      if(view==='analytics') loadAnalytics();
       Object.values(charts).forEach(c=>c.resize());
     }
     function greeting(){
@@ -530,14 +628,19 @@
     async function refresh(){
       const btn = document.getElementById('refreshBtn'); btn.disabled = true;
       try{
-        const [stats, insights, vers, proofs, reports, live, eps, sys] = await Promise.all([
+        const [stats, insights, vers, live, eps, sys] = await Promise.all([
           api('/admin/stats'), api('/admin/insights'), api('/admin/verifications'),
-          api('/admin/sterilisation-proofs').catch(()=>[]),
-          api('/admin/reports'), api('/admin/live'), api('/admin/endpoints'), api('/admin/system')
+          api('/admin/live'), api('/admin/endpoints'), api('/admin/system')
         ]);
         lastData = {stats, insights};
-        renderStats(stats); renderInsights(insights); renderVerifications(vers); renderProofs(proofs);
-        renderReports(reports); renderLive(live); renderEndpoints(eps);
+        renderStats(stats); renderInsights(insights); renderVerifications(vers);
+        renderLive(live); renderEndpoints(eps);
+        api('/admin/sterilisation-proofs').then(renderProofs)
+          .catch(e=>{ document.getElementById('proofs').innerHTML='<div class="inline-err">Could not load proofs (error '+(e.code||'?')+').</div>'; });
+        api('/admin/reports/detailed').then(renderReports)
+          .catch(()=>api('/admin/reports').then(renderReports))
+          .catch(e=>{ document.getElementById('reports').innerHTML='<div class="inline-err">Could not load reports (error '+(e.code||'?')+').</div>'; });
+        if(document.getElementById('view-analytics').classList.contains('active')) loadAnalytics();
         renderSystem(sys); renderTraffic(sys);
         stamp();
       }catch(e){
@@ -605,7 +708,7 @@
       document.getElementById('topSubs').innerHTML = subs.length
         ? `<table><tbody>${subs.map(s=>`<tr>
             <td><div class="who-cell"><span class="av">${esc((s.name||'?').slice(0,1).toUpperCase())}</span><b>${esc(s.name||'Unknown')}</b></div></td>
-            <td><span class="pill ${esc(s.tier)}">${esc(s.tier)}</span></td>
+            <td><span class="pill ${esc(s.tier)}">${esc(nice(s.tier))}</span></td>
             <td class="muted" style="text-align:right">since ${new Date(s.since).toLocaleDateString()}</td></tr>`).join('')}</tbody></table>`
         : emptyState('No paying members yet.');
     }
@@ -618,7 +721,7 @@
       document.getElementById('liveCount').textContent = n ? `· ${d.connections} connection${d.connections===1?'':'s'}` : '';
       const list = d.users||[];
       document.getElementById('liveUsers').innerHTML = list.length
-        ? list.map(u=>`<span class="online-chip"><span class="av">${esc((u.name||'?').slice(0,1).toUpperCase())}</span>${esc(u.name||'Someone')} <span class="pill ${esc(u.tier)}">${esc(u.tier)}</span></span>`).join('')
+        ? list.map(u=>`<span class="online-chip"><span class="av">${esc((u.name||'?').slice(0,1).toUpperCase())}</span>${esc(u.name||'Someone')} <span class="pill ${esc(u.tier)}">${esc(nice(u.tier))}</span></span>`).join('')
         : emptyState('Nobody is connected right now.');
     }
 
@@ -726,7 +829,7 @@
         return `<tr>
           <td><img class="thumb" src="${mediaUrl(v.selfieUrl)}" alt="Selfie" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/></td>
           <td><div class="row-photos">${photos||'<span class="muted">none</span>'}</div></td>
-          <td><b>${esc(v.name)}</b><div class="muted">${esc(v.email)}</div></td>
+          <td><b>${esc(v.name)}</b><div class="muted">${esc(v.email)}</div><button class="linkish" onclick="openMember('${v.userId}')">View full profile</button></td>
           <td><div class="acts"><button class="btn ok sm" onclick="review('${v.userId}',true,this)">Approve</button>
               <button class="btn bad sm" onclick="review('${v.userId}',false,this)">Reject</button></div></td>
         </tr>`;
@@ -742,20 +845,47 @@
       if(!list.length){ document.getElementById('proofs').innerHTML=emptyState('No sterilisation proofs waiting.'); return; }
       const rows = list.map(p=>{
         const url = mediaUrl(p.documentUrl);
-        const isImg = /\.(jpe?g|png|webp|heic|gif)(\?|$)/i.test(p.documentUrl||'');
-        const preview = isImg
-          ? `<img class="thumb" src="${url}" alt="Document" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`
-          : `<a class="btn ghost sm" href="${url}" target="_blank" rel="noopener">Open document</a>`;
+        const isPdf = /\.pdf(\?|$)/i.test(p.documentUrl||'');
+        const preview = isPdf
+          ? `<a class="btn ghost sm" href="${url}" target="_blank" rel="noopener">Open PDF</a>`
+          : `<img class="doc-prev" src="${url}" alt="Document" onclick="zoom(this.src)" onerror="docFallback(this)"/>`;
         return `<tr>
-          <td>${preview}</td>
-          <td class="mono muted">${esc((p.userId||'').slice(0,8))}…</td>
-          <td class="muted">${p.submittedAt ? new Date(p.submittedAt).toLocaleString() : ''}</td>
+          <td>${preview}<a class="linkish" style="display:inline-block;margin-top:6px" href="${url}" target="_blank" rel="noopener">Open full size</a></td>
+          <td>${memberCard(p)}</td>
+          <td>
+            <div class="meta-line">Declared procedure</div><b>${esc(nice(p.procedure)||'Not given')}</b>
+            <div class="meta-line" style="margin-top:8px">Submitted</div><span>${fmtDate(p.submittedAt)}</span>
+          </td>
           <td><div class="acts"><button class="btn ok sm" onclick="reviewProof('${p.userId}',true,this)">Approve</button>
               <button class="btn bad sm" onclick="reviewProof('${p.userId}',false,this)">Reject</button></div></td>
         </tr>`;
       }).join('');
       document.getElementById('proofs').innerHTML =
-        `<table><thead><tr><th>Document</th><th>Member</th><th>Submitted</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+        `<table><thead><tr><th>Document</th><th>Member</th><th>Details</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+    function docFallback(img){
+      const a = document.createElement('a');
+      a.href = img.src; a.target = '_blank'; a.rel = 'noopener'; a.className = 'btn ghost sm'; a.textContent = 'Open document';
+      img.replaceWith(a);
+    }
+
+    // Compact member summary used in review rows.
+    function memberCard(m){
+      const img = m.imageUrl
+        ? `<img class="ph" src="${mediaUrl(m.imageUrl)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`
+        : `<span class="ph av" style="width:64px;height:64px;border-radius:18px;font-size:22px">${esc((m.name||'?').slice(0,1).toUpperCase())}</span>`;
+      const facts = [m.age ? m.age+' yrs' : '', m.location||''].filter(Boolean).join(' · ');
+      return `<div class="mcard">${img}<div>
+        <b>${esc(m.name||'No name yet')}</b>
+        <div class="meta-line">${esc(m.email||'')}</div>
+        ${facts?`<div class="meta-line">${esc(facts)}</div>`:''}
+        <div class="tags">
+          ${m.pledgePath?`<span class="pill gold">${esc(nice(m.pledgePath))}</span>`:''}
+          ${m.verified?'<span class="pill user">Selfie verified</span>':'<span class="pill">Not selfie-verified</span>'}
+          ${m.joinedAt?`<span class="pill">Joined ${fmtDay(m.joinedAt)}</span>`:''}
+        </div>
+        <button class="linkish" style="margin-top:6px" onclick="openMember('${m.userId||m.id}')">View full profile</button>
+      </div></div>`;
     }
 
     function updateReviewCount(){
@@ -778,19 +908,203 @@
       document.getElementById('rCount').textContent = list.length || '0';
       if(!list.length){ document.getElementById('reports').innerHTML=emptyState('No open reports. The pack is behaving.'); return; }
       const rows = list.map(r=>{
-        const action = r.type==='meetup'
+        const isPack = r.type==='meetup';
+        const action = isPack
           ? `<button class="btn bad sm" onclick="removeMeetup('${r.targetId}','${r.id}')">Remove pack</button>`
-          : `<button class="btn bad sm" onclick="suspendUser('${r.targetId}','${r.id}')">Suspend</button>`;
+          : (r.targetSuspended ? '<span class="pill delete">Suspended</span>'
+                               : `<button class="btn bad sm" onclick="suspendUser('${r.targetId}','${r.id}')">Suspend</button>`);
+        const target = isPack ? `pack “${esc(r.targetName||'untitled')}”`
+          : (r.targetName!==undefined
+              ? `<button class="linkish" style="font-size:13px" onclick="openMember('${r.targetId}')">${esc(r.targetName||'Unnamed')}</button>`
+              : `<span class="mono">${esc((r.targetId||'').slice(0,8))}…</span>`);
+        const who = r.reporterName!==undefined
+          ? `<div class="who-line"><button class="linkish" style="font-size:13px" onclick="openMember('${r.reporterId}')">${esc(r.reporterName||'Someone')}</button><span class="arrow">reported</span>${target}</div>`
+          : `<div class="who-line">${target}</div>`;
+        const repeat = (r.targetReports||0) > 1 ? `<span class="pill post">${r.targetReports} reports in total</span>` : '';
         return `<tr>
-          <td><span class="pill ${r.type}">${r.type==='meetup'?'pack':'member'}</span></td>
-          <td><b>${esc((r.reason||'Unspecified').replace(/_/g,' '))}</b></td>
-          <td class="muted mono">${esc((r.targetId||'').slice(0,8))}…</td>
-          <td class="muted">${new Date(r.at).toLocaleString()}</td>
+          <td><span class="pill ${r.type}">${isPack?'Pack':'Member'}</span></td>
+          <td>${who}
+            <div class="tags"><span class="pill">${esc(nice(r.reason)||'Unspecified')}</span>${repeat}</div>
+            ${r.details?`<div class="quote">${esc(r.details)}</div>`:''}</td>
+          <td class="muted" style="white-space:nowrap">${fmtDate(r.at)}</td>
           <td><div class="acts">${action}<button class="btn quiet sm" onclick="dismiss('${r.type}','${r.id}')">Dismiss</button></div></td>
         </tr>`;
       }).join('');
       document.getElementById('reports').innerHTML =
-        `<table><thead><tr><th>Type</th><th>Reason</th><th>Target</th><th>When</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+        `<table><thead><tr><th>Type</th><th>What happened</th><th>When</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    // ── Members ────────────────────────────────────────────────────────────
+    let memberFilter = '';
+    function setFilter(btn){
+      document.querySelectorAll('#memberFilter button').forEach(b=>b.classList.toggle('on', b===btn));
+      memberFilter = btn.dataset.f; searchMembers();
+    }
+    function searchMembersSoon(){ clearTimeout(searchMembersSoon._t); searchMembersSoon._t = setTimeout(searchMembers, 300); }
+    function avatar(m, size, radius){
+      return m.imageUrl
+        ? `<img class="thumb" style="width:${size}px;height:${size}px;border-radius:${radius}px" src="${mediaUrl(m.imageUrl)}" alt="" onerror="this.style.opacity=.2"/>`
+        : `<span class="av" style="width:${size}px;height:${size}px;border-radius:${radius}px">${esc((m.name||'?').slice(0,1).toUpperCase())}</span>`;
+    }
+    async function searchMembers(){
+      const q = document.getElementById('memberQ').value.trim();
+      const el = document.getElementById('members');
+      try{
+        const list = await api('/admin/members?q='+encodeURIComponent(q)+'&filter='+encodeURIComponent(memberFilter));
+        if(!list.length){ el.innerHTML = emptyState('No members match.'); return; }
+        el.innerHTML = `<table><thead><tr><th>Member</th><th>Plan</th><th>Status</th><th>Reports</th><th>Joined</th><th>Last active</th></tr></thead><tbody>${
+          list.map(m=>`<tr class="click" onclick="openMember('${m.id}')">
+            <td><div class="who-cell">${avatar(m,38,12)}
+              <div><b>${esc(m.name||'No name yet')}</b><div class="meta-line">${esc(m.email||'')}${m.age?' · '+m.age:''}${m.location?' · '+esc(m.location):''}</div></div></div></td>
+            <td><span class="pill ${esc(m.tier)}">${esc(nice(m.tier))}</span></td>
+            <td><div class="tags" style="margin:0">${m.suspended?'<span class="pill delete">Suspended</span>':''}${m.verified?'<span class="pill user">Verified</span>':''}${m.onboarded?'':'<span class="pill">Onboarding</span>'}</div></td>
+            <td>${m.reports>0?`<span class="pill post">${m.reports}</span>`:'<span class="muted">0</span>'}</td>
+            <td class="muted">${fmtDay(m.joinedAt)}</td>
+            <td class="muted">${m.lastActiveAt?ago(m.lastActiveAt):''}</td>
+          </tr>`).join('')}</tbody></table>`;
+      }catch(e){ if(e.code===401||e.code===403) logout(); else el.innerHTML='<div class="inline-err">Could not load members (error '+(e.code||'?')+').</div>'; }
+    }
+
+    async function openMember(id){
+      const body = document.getElementById('drawerBody');
+      body.innerHTML = '<div class="empty">Loading…</div>';
+      document.getElementById('drawer').classList.add('on');
+      document.getElementById('drawerScrim').classList.add('on');
+      try{
+        const m = await api('/admin/members/'+id);
+        const c = m.counts||{};
+        const gallery = (m.gallery||[]).map(g=>`<img src="${mediaUrl(g)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`).join('');
+        const pets = (m.pets||[]).map(p=>`<div class="sysrow"><span class="k">${p.photoUrl?`<img src="${mediaUrl(p.photoUrl)}" class="thumb" style="width:34px;height:34px;display:inline-block;vertical-align:middle;margin-right:8px;border-radius:10px" onclick="zoom(this.src)" alt=""/>`:''}${esc(p.name)}</span><span class="v">${esc(nice(p.species))}${p.breedAndAge?' · '+esc(p.breedAndAge):''}</span></div>`).join('');
+        const reps = (m.reportsAgainst||[]).map(r=>`<div style="padding:10px 0;border-bottom:1px solid var(--line)">
+            <div class="tags" style="margin:0"><span class="pill">${esc(nice(r.reason))}</span><span class="meta-line">by ${esc(r.reporterName||'someone')} · ${fmtDate(r.at)}</span></div>
+            ${r.details?`<div class="quote">${esc(r.details)}</div>`:''}</div>`).join('');
+        const row = (k,v) => (v===null||v===undefined||v==='') ? '' : `<div class="sysrow"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+        body.innerHTML = `
+          <div class="hero-ph">
+            ${m.imageUrl?`<img src="${mediaUrl(m.imageUrl)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`:`<span class="av" style="width:96px;height:96px;border-radius:26px;font-size:34px">${esc((m.name||'?').slice(0,1).toUpperCase())}</span>`}
+            <div><h3>${esc(m.name||'No name yet')}${m.age?', '+m.age:''}</h3>
+              <div class="meta-line">${esc(m.email||'')}</div>
+              <div class="tags">
+                <span class="pill ${esc(m.tier)}">${esc(nice(m.tier))}</span>
+                ${m.suspended?'<span class="pill delete">Suspended</span>':''}
+                ${m.verified?'<span class="pill user">Selfie verified</span>':''}
+                ${m.sterilisationVerified?'<span class="pill gold">Sterilised · verified</span>':''}
+                ${m.admin?'<span class="pill post">Admin</span>':''}
+                ${m.paused?'<span class="pill">Paused</span>':''}
+              </div></div>
+          </div>
+          <div class="acts" style="justify-content:flex-start;margin-bottom:6px">
+            ${m.suspended?`<button class="btn ok sm" onclick="setSuspended('${m.id}',false)">Lift suspension</button>`
+                         :`<button class="btn bad sm" onclick="setSuspended('${m.id}',true)">Suspend</button>`}
+            <button class="btn ghost sm" onclick="copyId('${m.id}')">Copy id</button>
+          </div>
+          ${gallery?`<div class="gallery">${gallery}</div>`:''}
+          <div class="mini">
+            <div><b>${c.matches||0}</b><span>Matches</span></div>
+            <div><b>${c.messages||0}</b><span>Messages</span></div>
+            <div><b>${c.wagsReceived||0}</b><span>Wags in</span></div>
+            <div><b>${c.blockedBy||0}</b><span>Blocked by</span></div>
+          </div>
+          <div class="sec-t">About</div>
+          ${row('Location', esc(m.location))}
+          ${row('Occupation', esc(m.occupation))}
+          ${row('Here for', esc(nice(m.connectionMode)))}
+          ${row('Pledge', m.pledgePath ? esc(nice(m.pledgePath)) + (m.pledgedAt?` <span class="muted">· ${fmtDay(m.pledgedAt)}</span>`:'') : '')}
+          ${row('Sterilisation', m.procedure ? esc(nice(m.procedure)) + (m.sterilisationVerified?' <span class="muted">· verified</span>':' <span class="muted">· declared</span>') : '')}
+          ${row('Joined', fmtDate(m.joinedAt))}
+          ${row('Last active', m.lastActiveAt ? ago(m.lastActiveAt) : '')}
+          ${row('Onboarding', m.onboarded ? 'Complete' : 'Not finished')}
+          ${row('Wags sent', c.wagsSent)}
+          ${row('Packs hosted', c.packsHosted)}
+          ${row('Reports made', c.reportsMade)}
+          ${m.bio?`<div class="sec-t">Bio</div><div class="quote" style="max-width:none">${esc(m.bio)}</div>`:''}
+          ${pets?`<div class="sec-t">Animals</div>${pets}`:''}
+          <div class="sec-t">Reports against (${(m.reportsAgainst||[]).length})</div>
+          ${reps || '<div class="muted" style="font-size:13px">None.</div>'}`;
+      }catch(e){
+        if(e.code===401||e.code===403){ closeMember(); logout(); }
+        else body.innerHTML='<div class="inline-err">Could not load this member (error '+(e.code||'?')+').</div>';
+      }
+    }
+    function closeMember(){
+      document.getElementById('drawer').classList.remove('on');
+      document.getElementById('drawerScrim').classList.remove('on');
+    }
+    function copyId(id){
+      if(navigator.clipboard) navigator.clipboard.writeText(id).then(()=>toast('Member id copied'), ()=>{});
+    }
+    async function setSuspended(id, on){
+      if(on && !confirm('Suspend this member? They will be signed out and unable to sign in.')) return;
+      try{
+        await api(`/admin/users/${id}/${on?'suspend':'unsuspend'}`,{method:'POST'});
+        toast(on?'Member suspended':'Suspension lifted');
+        openMember(id); refresh(); if(go._members) searchMembers();
+      }catch(e){ if(e.code===401||e.code===403) logout(); else toast('Failed (error '+(e.code||'?')+')'); }
+    }
+
+    // ── Analytics ──────────────────────────────────────────────────────────
+    async function loadAnalytics(){
+      const err = document.getElementById('analyticsErr');
+      try{
+        const a = await api('/admin/analytics');
+        err.classList.add('hidden');
+        const act = a.activity||{}, f = a.funnel||{}, w = a.last7Days||{}, wal = a.wallet||{};
+        const stick = act.mau>0 ? Math.round(act.dau/act.mau*100) : 0;
+        document.getElementById('activityCards').innerHTML =
+          card(num(act.dau),'Active today','good','clock') + card(num(act.wau),'Active · 7 days','good','users') +
+          card(num(act.mau),'Active · 30 days','good','users') + card(stick+'%','Stickiness (DAU / MAU)','gold','heart');
+        document.getElementById('weekCards').innerHTML =
+          card(num(w.signups),'Sign-ups','', 'users') + card(num(w.wags),'Wags','', 'heart') +
+          card(num(w.matches),'Matches','', 'heart') + card(num(w.messages),'Messages','', 'plus') +
+          card(num(w.packs),'Packs created','', 'pack') + card(num(w.reports),'Reports', w.reports>0?'alert':'', 'flag');
+        const steps = [['Signed up',f.signedUp],['Finished onboarding',f.onboarded],['Added a photo',f.addedPhoto],
+                       ['Selfie verified',f.verified],['Got a match',f.matched],['Sent a message',f.messaged],['Paying',f.paying]];
+        document.getElementById('funnel').innerHTML = hbars(steps.map(([l,v])=>({label:l,count:v||0})), f.signedUp||0, true);
+        document.getElementById('bdPledge').innerHTML = hbars(a.pledgePaths);
+        document.getElementById('bdMode').innerHTML = hbars(a.connectionModes);
+        document.getElementById('bdAge').innerHTML = hbars(a.ageBands, null, true);
+        document.getElementById('bdLoc').innerHTML = hbars(a.topLocations, null, true);
+        document.getElementById('bdSpecies').innerHTML = hbars(a.species);
+        document.getElementById('bdTier').innerHTML = hbars(a.tiers);
+        document.getElementById('walletCards').innerHTML =
+          card('KES '+num(wal.topUpKes),'Top-ups ('+num(wal.topUps)+')','gold','money') +
+          card(num(wal.giftsSent),'Gifts sent','', 'heart') + card(num(wal.giftPaws),'Paws gifted','', 'star') +
+          card(num(wal.pendingWithdrawals),'Withdrawals waiting', wal.pendingWithdrawals>0?'alert':'', 'clock') +
+          card(num(wal.pendingWithdrawalPaws),'Paws to pay out','', 'money') +
+          card(num(wal.failedPayments),'Failed payments', wal.failedPayments>0?'alert':'', 'flag');
+        const days = a.dailySignups||[];
+        drawLine('chart4', days.map(d=>d.day.slice(5)), days.map(d=>d.count));
+      }catch(e){
+        if(e.code===401||e.code===403){ logout(); return; }
+        err.textContent = 'Could not load analytics (error '+(e.code||'?')+').'; err.classList.remove('hidden');
+      }
+    }
+    // Horizontal bars from rows of {label, count}. With `total`, widths are a share
+    // of it (a funnel); otherwise they're relative to the largest row.
+    function hbars(rows, total, rawLabels){
+      rows = rows||[];
+      if(!rows.length) return '<div class="muted" style="font-size:13px">No data yet.</div>';
+      const sum = total!=null ? total : rows.reduce((s,r)=>s+(+r.count||0),0);
+      const max = Math.max(...rows.map(r=>+r.count||0), 1);
+      return rows.map(r=>{
+        const n = +r.count||0;
+        const pct = sum>0 ? Math.round(n/sum*100) : 0;
+        const w = total!=null ? pct : Math.round(n/max*100);
+        const label = rawLabels ? (r.label||'') : nice(r.label);
+        return `<div class="hbar"><span class="lab" title="${esc(label)}">${esc(label)}</span><span class="tr"><span style="width:${w}%"></span></span><span class="val">${num(n)}<small>${pct}%</small></span></div>`;
+      }).join('');
+    }
+    function drawLine(id, labels, data){
+      if(typeof Chart==='undefined') return;
+      if(charts[id]) charts[id].destroy();
+      const acc = css('--acc');
+      charts[id] = new Chart(document.getElementById(id),{
+        type:'line',
+        data:{labels, datasets:[{data, borderColor:acc, backgroundColor:acc+'22', fill:true, tension:.35, pointRadius:0, pointHoverRadius:5, borderWidth:2.5}]},
+        options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+          scales:{y:{beginAtZero:true,grid:{color:css('--line')},border:{display:false},ticks:{precision:0}},
+                  x:{grid:{display:false},border:{display:false},ticks:{maxTicksLimit:8}}}}
+      });
     }
 
     async function suspendUser(userId, reportId){
@@ -827,6 +1141,17 @@
       if(m) return `${m}m ${s}s`;
       return `${s}s`;
     }
+    function nice(s){ s=(s||'').toString().replace(/_/g,' ').trim(); return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
+    function toDate(v){ return v==null ? null : new Date(v); }
+    function fmtDate(v){ const d=toDate(v); return d&&!isNaN(d) ? d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'}) : ''; }
+    function fmtDay(v){ const d=toDate(v); return d&&!isNaN(d) ? d.toLocaleDateString([], {dateStyle:'medium'}) : ''; }
+    function ago(v){
+      const d=toDate(v); if(!d||isNaN(d)) return '';
+      const s=Math.max(0,(Date.now()-d.getTime())/1000);
+      if(s<120) return 'just now'; if(s<3600) return Math.round(s/60)+' min ago';
+      if(s<86400) return Math.round(s/3600)+' h ago'; if(s<86400*30) return Math.round(s/86400)+' days ago';
+      return fmtDay(v);
+    }
     function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
     // Boot
@@ -834,7 +1159,7 @@
       const inp = document.getElementById('apiInput'); if(inp) inp.value = API;
       const hint = document.getElementById('apiHint'); if(hint) hint.textContent = 'API: '+API;
       themeLabel();
-      document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.getElementById('lightbox').classList.remove('on'); });
+      document.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; const lb=document.getElementById('lightbox'); if(lb.classList.contains('on')) lb.classList.remove('on'); else closeMember(); });
     })();
     if(token){ enter(); } else { show('login'); }
   </script>
