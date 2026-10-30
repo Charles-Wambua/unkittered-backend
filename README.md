@@ -150,6 +150,16 @@ docker compose up -d
 open http://localhost:8080/swagger-ui.html
 ```
 
+## Public website
+
+The API also serves the public site the app stores link to: `/` (landing),
+`/privacy`, `/terms`, `/guidelines`, `/safety`, `/delete-account` and
+`/support`. Pages are written in `site/pages/` and wrapped in the shared
+header and footer by `py -3 site/build.py`, which writes them into
+`src/main/resources/static/`. Commit the built pages. The support email and
+"last updated" date are set once, in `CONFIG` in `site/build.py`.
+`site/SitePageController` maps the clean URLs and lists them as public.
+
 ## Deploying
 
 Production runs on the GCP VM alongside commerce-orchestrator: native

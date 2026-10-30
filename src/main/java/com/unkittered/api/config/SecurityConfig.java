@@ -1,8 +1,10 @@
 package com.unkittered.api.config;
 
 import com.unkittered.api.security.JwtAuthFilter;
+import com.unkittered.api.site.SitePageController;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -47,6 +49,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC).permitAll()
+                        // Public website: landing, legal, safety and support pages.
+                        .requestMatchers(HttpMethod.GET, SitePageController.PUBLIC_PATHS).permitAll()
                         .anyRequest().authenticated())
                 // Missing or invalid token → 401, so clients know to sign in again
                 // (Spring's default here is 403, which apps treat as "not allowed").
