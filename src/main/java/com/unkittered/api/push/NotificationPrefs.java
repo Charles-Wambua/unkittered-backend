@@ -28,6 +28,10 @@ public class NotificationPrefs {
     @Column(nullable = false)
     private boolean likes = true;
 
+    /** Reminders & tips: unanswered chats, new people nearby, finishing the profile. */
+    @Column(nullable = false)
+    private boolean tips = true;
+
     protected NotificationPrefs() { }
 
     public NotificationPrefs(UUID userId) {
@@ -42,6 +46,7 @@ public class NotificationPrefs {
             case "message", "pack_message" -> messages;
             case "meetup", "meetup_cancelled" -> reminders;
             case "like" -> likes;
+            case "reminder" -> tips;
             default -> true;
         };
     }
@@ -55,4 +60,6 @@ public class NotificationPrefs {
     public void setReminders(boolean v) { this.reminders = v; }
     public boolean isLikes() { return likes; }
     public void setLikes(boolean v) { this.likes = v; }
+    public boolean isTips() { return tips; }
+    public void setTips(boolean v) { this.tips = v; }
 }

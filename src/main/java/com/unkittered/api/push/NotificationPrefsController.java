@@ -22,9 +22,10 @@ public class NotificationPrefsController {
         this.repo = repo;
     }
 
-    public record PrefsDto(boolean matches, boolean messages, boolean reminders, boolean likes) {
+    /** {@code tips} is optional on update: older apps don't send it. */
+    public record PrefsDto(boolean matches, boolean messages, boolean reminders, boolean likes, Boolean tips) {
         static PrefsDto from(NotificationPrefs p) {
-            return new PrefsDto(p.isMatches(), p.isMessages(), p.isReminders(), p.isLikes());
+            return new PrefsDto(p.isMatches(), p.isMessages(), p.isReminders(), p.isLikes(), p.isTips());
         }
     }
 
@@ -45,6 +46,7 @@ public class NotificationPrefsController {
         p.setMessages(req.messages());
         p.setReminders(req.reminders());
         p.setLikes(req.likes());
+        if (req.tips() != null) p.setTips(req.tips());
         return PrefsDto.from(repo.save(p));
     }
 }

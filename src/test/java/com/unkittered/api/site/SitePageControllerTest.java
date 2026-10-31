@@ -53,4 +53,9 @@ class SitePageControllerTest {
     void apiStillNeedsAToken() throws Exception {
         mvc.perform(get("/v1/me")).andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void privateUploadsAreNeverServedAsFiles() throws Exception {
+        mvc.perform(get("/files/private/" + "a".repeat(32) + ".jpg")).andExpect(status().is4xxClientError());
+    }
 }

@@ -254,6 +254,36 @@
     .grid3 .panel{margin-bottom:0}
     .inline-err{color:var(--acc-text);font-size:13px;padding:10px 0}
 
+    /* Broadcasts */
+    .bgrid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr);gap:16px;margin-bottom:16px}
+    @media(max-width:1100px){.bgrid{grid-template-columns:1fr}}
+    .bgrid .panel{margin-bottom:0}
+    .templates{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+    .tpl{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:8px 13px;font-weight:600;font-size:13px}
+    .tpl:hover{background:var(--surf2)}
+    .field{margin-bottom:14px}
+    .field .row{display:flex;justify-content:space-between;align-items:baseline}
+    .field .count{font-size:11.5px;color:var(--muted)}
+    textarea.input{min-height:120px;resize:vertical;font-family:inherit;line-height:1.5;margin-bottom:0}
+    select.input{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 15px) 50%;background-size:5px 5px;background-repeat:no-repeat;margin-bottom:0}
+    .checks{display:flex;gap:10px;flex-wrap:wrap}
+    .check{display:flex;align-items:center;gap:9px;border:1px solid var(--line);background:var(--bg);border-radius:14px;padding:11px 14px;font-weight:600;font-size:13.5px;cursor:pointer}
+    .check input{accent-color:var(--acc);width:17px;height:17px}
+    .check:has(input:disabled){opacity:.5;cursor:not-allowed}
+    .when-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .when-row .input{margin:0;max-width:190px}
+    .send-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+    .phone-pv{background:linear-gradient(160deg,#2b211b,#120d0a);border-radius:34px;padding:22px 16px 60px;min-height:420px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+    .phone-pv::before{content:"";position:absolute;inset:-40% -30% auto auto;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,#C96A3A,transparent 70%);opacity:.5}
+    .pv-time{position:relative;text-align:center;color:#F5F0E8;font:300 54px/1 var(--sans);letter-spacing:-1px;margin:10px 0 2px}
+    .pv-date{position:relative;text-align:center;color:rgba(245,240,232,.7);font-size:13px;margin-bottom:26px}
+    .pv-card{position:relative;background:rgba(250,247,242,.92);backdrop-filter:blur(10px);border-radius:20px;padding:12px 14px;color:#1A1410}
+    .pv-head{display:flex;align-items:center;gap:7px;font-size:11.5px;color:#76665A;margin-bottom:6px}
+    .pv-icon{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,#D4A843,#C96A3A 60%);display:grid;place-items:center}
+    .pv-icon svg{width:11px;height:11px;fill:#F5F0E8}
+    .pv-title{font-weight:700;font-size:14px;margin-bottom:2px}
+    .pv-body{font-size:13.5px;line-height:1.4;color:#3d322a;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+
     /* Lightbox + toast */
     .lightbox{position:fixed;inset:0;background:rgba(10,8,6,.82);display:none;align-items:center;justify-content:center;z-index:65;padding:24px;cursor:zoom-out}
     .lightbox.on{display:flex}
@@ -315,6 +345,7 @@
       <button class="nav-item" data-view="review" onclick="go('review')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></span>Review queue<span class="count" id="navReview"></span></button>
       <button class="nav-item" data-view="reports" onclick="go('reports')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg></span>Reports<span class="count" id="navReports"></span></button>
       <button class="nav-item" data-view="members" onclick="go('members')"><span class="ni"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.2.6 3.5 2.6 3.5 6"/></svg></span>Members</button>
+      <button class="nav-item" data-view="broadcast" onclick="go('broadcast')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a3.5 3.5 0 0 1 0 6M19 6.5a7 7 0 0 1 0 11"/></svg></span>Broadcast</button>
       <button class="nav-item" data-view="analytics" onclick="go('analytics')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>Analytics</button>
       <button class="nav-item" data-view="revenue" onclick="go('revenue')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>Growth &amp; revenue</button>
       <button class="nav-item" data-view="system" onclick="go('system')"><span class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>System &amp; traffic</button>
@@ -391,6 +422,85 @@
         </div>
       </section>
 
+      <!-- Broadcast -->
+      <section class="view" id="view-broadcast">
+        <div id="bChannelNote"></div>
+        <div class="bgrid">
+          <div class="panel">
+            <h2>New announcement</h2>
+            <div class="templates">
+              <button class="tpl" onclick="useTemplate('christmas')">🎄 Christmas</button>
+              <button class="tpl" onclick="useTemplate('newyear')">🎆 New Year</button>
+              <button class="tpl" onclick="useTemplate('valentine')">💘 Valentine's</button>
+              <button class="tpl" onclick="useTemplate('feature')">✨ New feature</button>
+              <button class="tpl" onclick="useTemplate('maintenance')">🛠 Maintenance</button>
+              <button class="tpl" onclick="useTemplate('comeback')">👋 Win back</button>
+            </div>
+            <div class="field">
+              <div class="row"><label class="f" for="bTitle">Title</label><span class="count" id="bTitleCount">0/80</span></div>
+              <input class="input" id="bTitle" maxlength="80" placeholder="Merry Christmas from the pack 🎄" oninput="bcastPreview()" style="margin-bottom:0" />
+            </div>
+            <div class="field">
+              <div class="row"><label class="f" for="bBody">Message</label><span class="count" id="bBodyCount">0/500</span></div>
+              <textarea class="input" id="bBody" maxlength="500" placeholder="Keep it short and warm. Push notifications show the first few lines." oninput="bcastPreview()"></textarea>
+            </div>
+            <div class="field">
+              <div class="row"><label class="f" for="bAudience">Send to</label><span class="count" id="bAudienceCount"></span></div>
+              <select class="input" id="bAudience" onchange="bcastAudience()">
+                <option value="all">Everyone</option>
+                <option value="verified">Verified members</option>
+                <option value="paying">Plus and Gold members</option>
+                <option value="free">Free members</option>
+                <option value="dating">Here for dating</option>
+                <option value="friends">Here for friends</option>
+                <option value="inactive">Away for 14+ days</option>
+                <option value="onboarding">Haven't finished sign-up</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="f">Send by</label>
+              <div class="checks">
+                <label class="check"><input type="checkbox" id="bPush" checked /> Push notification</label>
+                <label class="check"><input type="checkbox" id="bEmail" /> Email</label>
+              </div>
+            </div>
+            <div class="field">
+              <label class="f">When</label>
+              <div class="checks">
+                <label class="check"><input type="radio" name="bWhen" value="now" checked onchange="bcastPreview();updateSendLabel()" /> Now</label>
+                <label class="check"><input type="radio" name="bWhen" value="later" onchange="bcastPreview();updateSendLabel()" /> Schedule</label>
+              </div>
+              <div class="when-row hidden" id="bSchedule">
+                <input class="input" type="date" id="bDate" />
+                <input class="input" type="time" id="bTime" value="09:00" />
+                <span class="muted" style="font-size:12.5px;align-self:center">in each member's own time zone</span>
+              </div>
+            </div>
+            <div class="send-row">
+              <button class="btn ghost" id="bTestBtn" onclick="sendBroadcast(true)">Send a test to me</button>
+              <button class="btn primary" id="bSendBtn" onclick="sendBroadcast(false)">Send</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Preview</h2>
+            <div class="phone-pv">
+              <div class="pv-time" id="pvClock">9:41</div>
+              <div class="pv-date" id="pvDate"></div>
+              <div class="pv-card">
+                <div class="pv-head"><span class="pv-icon"><svg viewBox="0 0 24 24"><use href="#paw"/></svg></span>Unkittered · now</div>
+                <div class="pv-title" id="pvTitle">Your title</div>
+                <div class="pv-body" id="pvBody"></div>
+              </div>
+            </div>
+            <p class="muted" style="font-size:12.5px;margin:12px 0 0">Members who turned off notifications won't see it on their phone. Suspended accounts never receive announcements.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Sent and scheduled</h2>
+          <div class="tbl" id="bHistory"><div class="empty">Loading…</div></div>
+        </div>
+      </section>
+
       <!-- Analytics -->
       <section class="view" id="view-analytics">
         <div id="analyticsErr" class="inline-err hidden"></div>
@@ -411,6 +521,7 @@
           <div class="panel"><h2>Plans</h2><div class="hbars" id="bdTier"></div></div>
         </div>
         <div class="panel"><h2>Paws wallet <span class="muted">· last 30 days</span></h2><div class="cards" id="walletCards" style="margin:0"></div></div>
+        <div class="panel"><h2>Reminders &amp; announcements <span class="muted">· last 30 days</span></h2><div class="tbl" id="reminderStats"></div></div>
       </section>
 
       <!-- Revenue -->
@@ -474,7 +585,7 @@
     const TITLES = {
       overview:'Good <em>day</em>', review:'Review <em>queue</em>', reports:'<em>Reports</em>',
       revenue:'Growth &amp; <em>revenue</em>', system:'System &amp; <em>traffic</em>',
-      members:'<em>Members</em>', analytics:'<em>Analytics</em>'
+      members:'<em>Members</em>', analytics:'<em>Analytics</em>', broadcast:'<em>Broadcast</em>'
     };
 
     function setApi(v){
@@ -511,6 +622,7 @@
       try{ sessionStorage.setItem('admin_view', view); }catch(_){}
       if(view==='members' && !go._members){ go._members=true; searchMembers(); }
       if(view==='analytics') loadAnalytics();
+      if(view==='broadcast') loadBroadcasts();
       Object.values(charts).forEach(c=>c.resize());
     }
     function greeting(){
@@ -825,17 +937,18 @@
       updateReviewCount();
       if(!list.length){ document.getElementById('verifications').innerHTML=emptyState('Nothing awaiting review.'); return; }
       const rows = list.map(v=>{
-        const photos = (v.profilePhotos||[]).slice(0,3).map(p=>`<img class="thumb" src="${mediaUrl(p)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`).join('');
+        const photos = (v.profilePhotos||[]).slice(0,3).map(p=>`<img class="thumb" ${imgSrc(p)} alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`).join('');
         return `<tr>
-          <td><img class="thumb" src="${mediaUrl(v.selfieUrl)}" alt="Selfie" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/></td>
+          <td><img class="thumb" ${imgSrc(v.selfieUrl)} alt="Selfie" onclick="zoom(this.src)"/></td>
           <td><div class="row-photos">${photos||'<span class="muted">none</span>'}</div></td>
           <td><b>${esc(v.name)}</b><div class="muted">${esc(v.email)}</div><button class="linkish" onclick="openMember('${v.userId}')">View full profile</button></td>
           <td><div class="acts"><button class="btn ok sm" onclick="review('${v.userId}',true,this)">Approve</button>
               <button class="btn bad sm" onclick="review('${v.userId}',false,this)">Reject</button></div></td>
         </tr>`;
       }).join('');
-      document.getElementById('verifications').innerHTML =
-        `<table><thead><tr><th>Selfie</th><th>Profile photos</th><th>Member</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      const vel = document.getElementById('verifications');
+      vel.innerHTML = `<table><thead><tr><th>Selfie</th><th>Profile photos</th><th>Member</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      hydrate(vel);
     }
 
     function renderProofs(list){
@@ -844,13 +957,12 @@
       updateReviewCount();
       if(!list.length){ document.getElementById('proofs').innerHTML=emptyState('No sterilisation proofs waiting.'); return; }
       const rows = list.map(p=>{
-        const url = mediaUrl(p.documentUrl);
         const isPdf = /\.pdf(\?|$)/i.test(p.documentUrl||'');
         const preview = isPdf
-          ? `<a class="btn ghost sm" href="${url}" target="_blank" rel="noopener">Open PDF</a>`
-          : `<img class="doc-prev" src="${url}" alt="Document" onclick="zoom(this.src)" onerror="docFallback(this)"/>`;
+          ? `<button class="btn ghost sm" onclick="openFile('${esc(p.documentUrl)}')">Open PDF</button>`
+          : `<img class="doc-prev" ${imgSrc(p.documentUrl)} alt="Document" onclick="zoom(this.src)"/>`;
         return `<tr>
-          <td>${preview}<a class="linkish" style="display:inline-block;margin-top:6px" href="${url}" target="_blank" rel="noopener">Open full size</a></td>
+          <td>${preview}<button class="linkish" style="display:block;margin-top:6px" onclick="openFile('${esc(p.documentUrl)}')">Open full size</button></td>
           <td>${memberCard(p)}</td>
           <td>
             <div class="meta-line">Declared procedure</div><b>${esc(nice(p.procedure)||'Not given')}</b>
@@ -860,8 +972,9 @@
               <button class="btn bad sm" onclick="reviewProof('${p.userId}',false,this)">Reject</button></div></td>
         </tr>`;
       }).join('');
-      document.getElementById('proofs').innerHTML =
-        `<table><thead><tr><th>Document</th><th>Member</th><th>Details</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      const pel = document.getElementById('proofs');
+      pel.innerHTML = `<table><thead><tr><th>Document</th><th>Member</th><th>Details</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      hydrate(pel);
     }
     function docFallback(img){
       const a = document.createElement('a');
@@ -932,6 +1045,140 @@
       }).join('');
       document.getElementById('reports').innerHTML =
         `<table><thead><tr><th>Type</th><th>What happened</th><th>When</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    // ── Private files (selfies, sterilisation documents) ────────────────────
+    // They're only readable with the admin token, so fetch them as blobs.
+    const privateBlobs = {};
+    const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+    function isPrivate(u){ return typeof u === 'string' && u.startsWith('/private/'); }
+    function imgSrc(u){ return isPrivate(u) ? `src="${BLANK}" data-private="${esc(u)}"` : `src="${mediaUrl(u)}"`; }
+    async function privateUrl(u){
+      if(privateBlobs[u]) return privateBlobs[u];
+      const res = await fetchT(API + '/admin/private-files/' + encodeURIComponent(u.slice('/private/'.length)),
+        {headers:{'Authorization':'Bearer '+token}}, 20000);
+      if(!res.ok) throw {code:res.status};
+      return privateBlobs[u] = URL.createObjectURL(await res.blob());
+    }
+    async function hydrate(root){
+      for(const el of root.querySelectorAll('img[data-private]')){
+        try{ el.src = await privateUrl(el.dataset.private); }catch(_){ el.style.opacity = .2; }
+      }
+    }
+    async function openFile(u){
+      try{ window.open(isPrivate(u) ? await privateUrl(u) : mediaUrl(u), '_blank', 'noopener'); }
+      catch(e){ toast('Could not open the file (error '+(e.code||'?')+')'); }
+    }
+
+    // ── Broadcasts ─────────────────────────────────────────────────────────
+    const TEMPLATES = {
+      christmas: ['Merry Christmas from the pack 🎄', 'Wishing you and your furbabies a cosy, kid-free Christmas full of good food, long naps and great company. Thank you for being part of Unkittered. 🐾'],
+      newyear: ['Happy New Year! 🎆', 'Here\'s to a new year of adventures, new friends and maybe someone special. Thanks for making Unkittered what it is.'],
+      valentine: ['Happy Valentine\'s Day 💘', 'Whether you\'re celebrating with a date, your friends or your favourite furball, we hope today is full of love. Someone might be waiting to hear from you...'],
+      feature: ['Something new on Unkittered ✨', 'We\'ve just added something we think you\'ll love. Update the app and take a look.'],
+      maintenance: ['Short maintenance tonight', 'Unkittered will be unavailable for about 30 minutes tonight while we make improvements. Thanks for your patience.'],
+      comeback: ['We\'ve missed you 🐾', 'New members have joined near you, and packs are meeting this weekend. Come and say hi.']
+    };
+    let bcastChannels = {push:false, email:false};
+    function useTemplate(k){
+      const [t,b] = TEMPLATES[k];
+      document.getElementById('bTitle').value = t; document.getElementById('bBody').value = b;
+      if(k==='comeback') document.getElementById('bAudience').value = 'inactive';
+      bcastPreview(); bcastAudience();
+    }
+    function bcastPreview(){
+      const t = document.getElementById('bTitle').value, b = document.getElementById('bBody').value;
+      document.getElementById('pvTitle').textContent = t || 'Your title';
+      document.getElementById('pvBody').textContent = b || 'Your message appears here, just like on a member\'s phone.';
+      document.getElementById('bTitleCount').textContent = t.length + '/80';
+      document.getElementById('bBodyCount').textContent = b.length + '/500';
+      const when = document.querySelector('input[name=bWhen]:checked').value;
+      document.getElementById('bSchedule').classList.toggle('hidden', when!=='later');
+    }
+    async function bcastAudience(){
+      const a = document.getElementById('bAudience').value;
+      try{
+        const r = await api('/admin/broadcasts/audience?audience='+encodeURIComponent(a));
+        document.getElementById('bAudienceCount').textContent = num(r.count) + (r.count===1?' member':' members');
+        document.getElementById('bSendBtn').dataset.count = r.count;
+        updateSendLabel();
+      }catch(e){ document.getElementById('bAudienceCount').textContent = ''; }
+    }
+    function updateSendLabel(){
+      const n = +document.getElementById('bSendBtn').dataset.count || 0;
+      const later = document.querySelector('input[name=bWhen]:checked').value==='later';
+      document.getElementById('bSendBtn').textContent = later ? 'Schedule' : `Send to ${num(n)} ${n===1?'member':'members'}`;
+    }
+    async function loadBroadcasts(){
+      try{
+        const [ch, hist] = await Promise.all([api('/admin/broadcasts/channels'), api('/admin/broadcasts')]);
+        bcastChannels = ch;
+        const emailBox = document.getElementById('bEmail');
+        emailBox.disabled = !ch.email; if(!ch.email) emailBox.checked = false;
+        document.getElementById('bPush').disabled = !ch.push;
+        document.getElementById('bChannelNote').innerHTML =
+          (!ch.push ? '<div class="note">Push isn\'t set up on the server, so nothing will reach phones.</div>' : '') +
+          (!ch.email ? '<div class="note">Email isn\'t set up yet. Add the Gmail settings on the server to send by email.</div>' : '');
+        renderBroadcastHistory(hist);
+        bcastAudience(); bcastPreview();
+      }catch(e){ if(e.code===401||e.code===403) logout(); }
+    }
+    function renderBroadcastHistory(list){
+      const el = document.getElementById('bHistory');
+      if(!list.length){ el.innerHTML = emptyState('Nothing sent yet. Your first announcement will show here.'); return; }
+      const statusPill = s => ({sent:'<span class="pill user">Sent</span>', scheduled:'<span class="pill gold">Scheduled</span>',
+        sending:'<span class="pill gold">Delivering</span>', cancelled:'<span class="pill">Cancelled</span>'})[s] || esc(s);
+      el.innerHTML = `<table><thead><tr><th>Announcement</th><th>Audience</th><th>Via</th><th>Status</th><th style="text-align:right">Reached</th><th style="text-align:right">Opened</th><th></th></tr></thead><tbody>${
+        list.map(b=>`<tr>
+          <td><b>${esc(b.title)}</b><div class="meta-line" style="max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.body)}</div>
+              <div class="meta-line">${b.status==='scheduled'||b.status==='sending' ? 'For '+fmtLocal(b.sendAtLocal)+' local time' : fmtDate(b.completedAt||b.createdAt)}${b.sentBy?' · '+esc(b.sentBy):''}</div></td>
+          <td>${esc(nice(b.audience))}</td>
+          <td>${[b.push?'Push':'', b.email?'Email':''].filter(Boolean).join(' + ')}</td>
+          <td>${statusPill(b.status)}</td>
+          <td style="text-align:right">${num(b.recipients)}</td>
+          <td style="text-align:right">${b.recipients>0 && b.push ? Math.round(b.opened/b.recipients*100)+'%' : '<span class="muted">—</span>'}</td>
+          <td>${b.status==='scheduled'||b.status==='sending' ? `<button class="btn quiet sm" onclick="cancelBroadcast('${b.id}')">Cancel</button>` : ''}</td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+    function fmtLocal(v){
+      if(v==null) return '';
+      const d = new Date(typeof v === 'number' ? v : String(v).replace(' ','T'));
+      return isNaN(d) ? String(v) : d.toLocaleString([], {dateStyle:'medium', timeStyle:'short'});
+    }
+    async function sendBroadcast(test){
+      const title = document.getElementById('bTitle').value.trim();
+      const body = document.getElementById('bBody').value.trim();
+      const audience = document.getElementById('bAudience').value;
+      const push = document.getElementById('bPush').checked, email = document.getElementById('bEmail').checked;
+      const later = document.querySelector('input[name=bWhen]:checked').value==='later';
+      if(!title || !body){ toast('Add a title and a message'); return; }
+      if(!push && !email){ toast('Choose push, email or both'); return; }
+      let sendAtLocal = null;
+      if(later && !test){
+        const d = document.getElementById('bDate').value, t = document.getElementById('bTime').value;
+        if(!d || !t){ toast('Pick a date and time'); return; }
+        sendAtLocal = d + 'T' + t;
+      }
+      if(!test){
+        const n = +document.getElementById('bSendBtn').dataset.count || 0;
+        const msg = later ? `Schedule "${title}" for ${d2(sendAtLocal)} in each member's local time?`
+                          : `Send "${title}" to ${num(n)} ${n===1?'member':'members'} now? This can't be undone.`;
+        if(!confirm(msg)) return;
+      }
+      const btn = document.getElementById(test?'bTestBtn':'bSendBtn'); btn.disabled = true;
+      try{
+        const r = await api('/admin/broadcasts', {method:'POST', body: JSON.stringify({title, body, audience, push, email, test, sendAtLocal})});
+        toast(r.test ? 'Test sent to you. Check your phone.' : r.scheduled ? 'Scheduled' : `Sent to ${num(r.recipients)} ${r.recipients===1?'member':'members'}`);
+        if(!test) loadBroadcasts();
+      }catch(e){
+        if(e.code===401||e.code===403) logout(); else toast('Could not send (error '+(e.code||'?')+')');
+      }finally{ btn.disabled = false; updateSendLabel(); }
+    }
+    function d2(local){ return fmtLocal(local); }
+    async function cancelBroadcast(id){
+      if(!confirm('Cancel this scheduled announcement? Members it already reached keep it.')) return;
+      try{ await api(`/admin/broadcasts/${id}/cancel`, {method:'POST'}); toast('Cancelled'); loadBroadcasts(); }
+      catch(e){ if(e.code===401||e.code===403) logout(); else toast('Could not cancel (error '+(e.code||'?')+')'); }
     }
 
     // ── Members ────────────────────────────────────────────────────────────
@@ -1072,6 +1319,14 @@
           card(num(wal.pendingWithdrawals),'Withdrawals waiting', wal.pendingWithdrawals>0?'alert':'', 'clock') +
           card(num(wal.pendingWithdrawalPaws),'Paws to pay out','', 'money') +
           card(num(wal.failedPayments),'Failed payments', wal.failedPayments>0?'alert':'', 'flag');
+        api('/admin/reminders/stats').then(rows=>{
+          const el = document.getElementById('reminderStats');
+          if(!rows.length){ el.innerHTML = '<div class="muted" style="font-size:13px">Nothing sent yet. Reminders go out hourly between 9:00 and 21:00 in each member\'s time zone.</div>'; return; }
+          el.innerHTML = `<table><thead><tr><th>Kind</th><th style="text-align:right">Sent</th><th style="text-align:right">Opened</th><th>Open rate</th></tr></thead><tbody>${
+            rows.map(r=>{ const rate = r.sent>0 ? Math.round(r.opened/r.sent*100) : 0;
+              return `<tr><td>${esc(r.label)}</td><td style="text-align:right">${num(r.sent)}</td><td style="text-align:right">${num(r.opened)}</td>
+                <td style="min-width:160px"><div class="hbar" style="grid-template-columns:1fr 44px"><span class="tr"><span style="width:${rate}%"></span></span><span class="val" style="min-width:0">${rate}%</span></div></td></tr>`; }).join('')}</tbody></table>`;
+        }).catch(()=>{});
         const days = a.dailySignups||[];
         drawLine('chart4', days.map(d=>d.day.slice(5)), days.map(d=>d.count));
       }catch(e){
@@ -1159,6 +1414,11 @@
       const inp = document.getElementById('apiInput'); if(inp) inp.value = API;
       const hint = document.getElementById('apiHint'); if(hint) hint.textContent = 'API: '+API;
       themeLabel();
+      const now = new Date();
+      document.getElementById('pvClock').textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      document.getElementById('pvDate').textContent = now.toLocaleDateString([], {weekday:'long', day:'numeric', month:'long'});
+      const tomorrow = new Date(now.getTime() + 864e5);
+      document.getElementById('bDate').value = tomorrow.toISOString().slice(0,10);
       document.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; const lb=document.getElementById('lightbox'); if(lb.classList.contains('on')) lb.classList.remove('on'); else closeMember(); });
     })();
     if(token){ enter(); } else { show('login'); }

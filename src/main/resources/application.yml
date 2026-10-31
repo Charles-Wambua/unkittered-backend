@@ -11,6 +11,11 @@ management:
   metrics:
     tags:
       application: unkittered-api
+  health:
+    # The mail server isn't part of readiness: an unset or slow SMTP host must
+    # never fail the deploy health check.
+    mail:
+      enabled: false
 
 spring:
   application:
@@ -39,6 +44,22 @@ spring:
     enabled: true
     baseline-on-migrate: true
 
+  # SMTP for transactional email. Unset host = email off (codes are only logged).
+  # Gmail: host smtp.gmail.com, port 587, username = the Gmail address,
+  # password = a Gmail *app password* (needs 2-step verification on).
+  mail:
+    host: ${UNKITTERED_MAIL_HOST:}
+    port: ${UNKITTERED_MAIL_PORT:587}
+    username: ${UNKITTERED_MAIL_USERNAME:}
+    password: ${UNKITTERED_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 15000
+      mail.smtp.writetimeout: 15000
+
   data:
     redis:
       host: ${REDIS_HOST:redis}
@@ -55,6 +76,19 @@ spring.cloud.aws:
     endpoint: ${AWS_SQS_ENDPOINT:http://localstack:4566}
 
 unkittered:
+  mail:
+    # Sender shown to members; defaults to the SMTP username.
+    from: ${UNKITTERED_MAIL_FROM:}
+    from-name: ${UNKITTERED_MAIL_FROM_NAME:Unkittered}
+    # Public site, linked from emails.
+    site-url: ${UNKITTERED_SITE_URL:https://unkittered.directpublish.duckdns.org}
+    support: ${UNKITTERED_SUPPORT_EMAIL:unkittered@gmail.com}
+  media:
+    # Nightly clean-up: delete expired stories and uploaded files nothing refers to.
+    sweep-cron: ${UNKITTERED_MEDIA_SWEEP_CRON:0 30 3 * * *}
+    # An unreferenced file must be at least this old before it's deleted (covers
+    # uploads that aren't saved to a row yet).
+    orphan-grace-hours: ${UNKITTERED_MEDIA_ORPHAN_GRACE_HOURS:48}
   auth:
     # Log password-reset codes (local development only: no email sender yet).
     log-reset-codes: ${UNKITTERED_LOG_RESET_CODES:false}

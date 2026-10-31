@@ -4,10 +4,16 @@ import com.unkittered.api.admin.AdminDtos.PendingVerificationDto;
 import com.unkittered.api.admin.AdminDtos.ReportDto;
 import com.unkittered.api.admin.AdminDtos.StatsDto;
 import com.unkittered.api.common.ApiException;
+import com.unkittered.api.mail.MemberNotifier;
+import com.unkittered.api.reminders.ReminderService;
+import com.unkittered.api.storage.StorageService;
 import com.unkittered.api.verification.SterilisationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,12 +30,70 @@ public class AdminController {
     private final AdminService admin;
     private final AdminInsightsService insights;
     private final SterilisationService sterilisation;
+    private final BroadcastService broadcasts;
+    private final MemberNotifier notify;
+    private final StorageService storage;
+    private final ReminderService reminders;
 
     public AdminController(AdminService admin, AdminInsightsService insights,
-                           SterilisationService sterilisation) {
+                           SterilisationService sterilisation, BroadcastService broadcasts,
+                           MemberNotifier notify, StorageService storage, ReminderService reminders) {
         this.admin = admin;
         this.insights = insights;
         this.sterilisation = sterilisation;
+        this.broadcasts = broadcasts;
+        this.notify = notify;
+        this.storage = storage;
+        this.reminders = reminders;
+    }
+
+    @Operation(summary = "A private verification file (selfie or sterilisation document), admins only")
+    @GetMapping("/private-files/{name}")
+    public ResponseEntity<byte[]> privateFile(@PathVariable String name) {
+        admin.requireAdmin();
+        StorageService.PrivateFile f = storage.readPrivate(name)
+                .orElseThrow(() -> ApiException.notFound("No such file"));
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(f.contentType()))
+                .cacheControl(CacheControl.noStore())
+                .body(f.bytes());
+    }
+
+    @Operation(summary = "Which channels can reach members (push, email)")
+    @GetMapping("/broadcasts/channels")
+    public Map<String, Object> broadcastChannels() {
+        return broadcasts.channels();
+    }
+
+    @Operation(summary = "How many members an audience reaches (suspended accounts excluded)")
+    @GetMapping("/broadcasts/audience")
+    public Map<String, Long> broadcastAudience(@RequestParam(defaultValue = "all") String audience) {
+        return Map.of("count", broadcasts.audienceSize(audience));
+    }
+
+    @Operation(summary = "Send an announcement by push and/or email; test=true sends only to you")
+    @PostMapping("/broadcasts")
+    public BroadcastService.Result broadcast(@RequestBody BroadcastService.Request request) {
+        return broadcasts.send(request);
+    }
+
+    @Operation(summary = "Cancel a scheduled announcement (members already reached keep it)")
+    @PostMapping("/broadcasts/{id}/cancel")
+    public void cancelBroadcast(@PathVariable String id) {
+        broadcasts.cancel(parseId(id));
+    }
+
+    @Operation(summary = "Reminders and announcements sent and opened in the last 30 days, by kind")
+    @GetMapping("/reminders/stats")
+    public List<Map<String, Object>> reminderStats() {
+        admin.requireAdmin();
+        return reminders.stats();
+    }
+
+    @Operation(summary = "Announcements sent so far, newest first")
+    @GetMapping("/broadcasts")
+    public List<Map<String, Object>> broadcastHistory() {
+        return broadcasts.history();
     }
 
     @Operation(summary = "Pending sterilisation proofs (gold badge), with the member who sent each")
@@ -71,14 +135,18 @@ public class AdminController {
     @PostMapping("/sterilisation-proofs/{userId}/approve")
     public void approveSterilisation(@PathVariable String userId) {
         admin.requireAdmin();
-        sterilisation.review(parseId(userId), true);
+        UUID id = parseId(userId);
+        sterilisation.review(id, true);
+        notify.sterilisationReviewed(id, true);
     }
 
     @Operation(summary = "Reject a sterilisation proof (clears the document)")
     @PostMapping("/sterilisation-proofs/{userId}/reject")
     public void rejectSterilisation(@PathVariable String userId) {
         admin.requireAdmin();
-        sterilisation.review(parseId(userId), false);
+        UUID id = parseId(userId);
+        sterilisation.review(id, false);
+        notify.sterilisationReviewed(id, false);
     }
 
     @Operation(summary = "Headline metrics")
@@ -103,13 +171,17 @@ public class AdminController {
     @Operation(summary = "Approve a user's verification")
     @PostMapping("/verifications/{userId}/approve")
     public void approve(@PathVariable String userId) {
-        admin.review(parseId(userId), true);
+        UUID id = parseId(userId);
+        admin.review(id, true);
+        notify.selfieReviewed(id, true);
     }
 
     @Operation(summary = "Reject a user's verification")
     @PostMapping("/verifications/{userId}/reject")
     public void reject(@PathVariable String userId) {
-        admin.review(parseId(userId), false);
+        UUID id = parseId(userId);
+        admin.review(id, false);
+        notify.selfieReviewed(id, false);
     }
 
     @Operation(summary = "Moderation reports (users + meetups)")
@@ -145,19 +217,26 @@ public class AdminController {
     @Operation(summary = "Suspend a user (blocks their sign-in)")
     @PostMapping("/users/{id}/suspend")
     public void suspend(@PathVariable String id) {
-        admin.suspendUser(parseId(id), true);
+        UUID userId = parseId(id);
+        admin.suspendUser(userId, true);
+        notify.suspended(userId);
+        notify.reportersThanked(userId);
     }
 
     @Operation(summary = "Lift a user's suspension")
     @PostMapping("/users/{id}/unsuspend")
     public void unsuspend(@PathVariable String id) {
-        admin.suspendUser(parseId(id), false);
+        UUID userId = parseId(id);
+        admin.suspendUser(userId, false);
+        notify.reinstated(userId);
     }
 
     @Operation(summary = "Remove a meetup (admin override)")
     @DeleteMapping("/meetups/{id}")
     public void removeMeetup(@PathVariable String id) {
-        admin.removeMeetup(parseId(id));
+        UUID meetupId = parseId(id);
+        notify.packReportersThanked(meetupId);
+        admin.removeMeetup(meetupId);
     }
 
     @Operation(summary = "Dismiss a report")

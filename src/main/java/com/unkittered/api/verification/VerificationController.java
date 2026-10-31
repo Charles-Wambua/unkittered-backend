@@ -55,7 +55,7 @@ public class VerificationController {
             throw ApiException.badRequest("Proof must be an image or a PDF");
         }
         try {
-            String url = storage.store(file.getBytes(), type, file.getOriginalFilename());
+            String url = storage.storePrivate(file.getBytes(), type, file.getOriginalFilename());
             return Map.of("sterilisationStatus", sterilisation.submit(userId, url));
         } catch (IOException e) {
             throw ApiException.badRequest("Could not read the uploaded file");
@@ -74,7 +74,7 @@ public class VerificationController {
             throw ApiException.badRequest("Verification selfie must be an image");
         }
         try {
-            String url = storage.store(file.getBytes(), contentType, file.getOriginalFilename());
+            String url = storage.storePrivate(file.getBytes(), contentType, file.getOriginalFilename());
             return Map.of("status", verification.submit(userId, url));
         } catch (IOException e) {
             throw ApiException.badRequest("Could not read the uploaded file");

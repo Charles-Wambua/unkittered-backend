@@ -2,6 +2,8 @@ package com.unkittered.api.push;
 
 import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.MulticastMessage;
 import com.google.firebase.messaging.Notification;
 import com.google.firebase.messaging.SendResponse;
@@ -72,8 +74,17 @@ public class PushService {
         // FCM multicast caps at 500 tokens per call.
         for (int i = 0; i < targets.size(); i += 500) {
             List<String> chunk = targets.subList(i, Math.min(i + 500, targets.size()));
-            MulticastMessage message = MulticastMessage.builder()
-                    .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+            MulticastMessage.Builder builder = MulticastMessage.builder()
+                    .setNotification(Notification.builder().setTitle(title).setBody(body).build());
+            // Reminders and announcements use their own Android channel, so members can
+            // mute them in system settings without losing messages.
+            String channel = payload.get("channel");
+            if (channel != null) {
+                builder.setAndroidConfig(AndroidConfig.builder()
+                        .setNotification(AndroidNotification.builder().setChannelId(channel).build())
+                        .build());
+            }
+            MulticastMessage message = builder
                     .putAllData(payload)
                     .addAllTokens(chunk)
                     .build();

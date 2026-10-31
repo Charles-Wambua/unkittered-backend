@@ -48,6 +48,9 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Selfies and sterilisation documents live under the upload root but are
+                        // only readable by admins via /v1/admin/private-files (first match wins).
+                        .requestMatchers("/files/private/**", "/files/private").denyAll()
                         .requestMatchers(PUBLIC).permitAll()
                         // Public website: landing, legal, safety and support pages.
                         .requestMatchers(HttpMethod.GET, SitePageController.PUBLIC_PATHS).permitAll()

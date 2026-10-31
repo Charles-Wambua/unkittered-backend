@@ -13,7 +13,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * Disk-backed storage for self-hosted deployments. Writes under
@@ -42,6 +44,10 @@ public class LocalStorageService implements StorageService {
             Map.entry("video/webm", ".webm"));
 
     static final String URL_PREFIX = "/files/";
+    static final String PRIVATE_PREFIX = "/private/";
+    static final String PRIVATE_DIR = "private";
+    /** Names this service generates: 32 hex chars and an extension. */
+    static final Pattern STORED_NAME = Pattern.compile("[0-9a-f]{32}\\.[a-z0-9]{2,5}");
 
     private final Path root;
     private final String publicBaseUrl;
@@ -66,6 +72,51 @@ public class LocalStorageService implements StorageService {
 
     Path root() {
         return root;
+    }
+
+    /** Sensitive files: under the root but never served by {@link LocalStorageWebConfig}. */
+    Path privateRoot() {
+        return root.resolve(PRIVATE_DIR);
+    }
+
+    @Override
+    public String storePrivate(byte[] bytes, String contentType, String originalFilename) {
+        String type = contentType == null ? "" : contentType.toLowerCase();
+        String ext = "application/pdf".equals(type) ? ".pdf" : EXTENSIONS.get(type);
+        if (ext == null || type.startsWith("video/")) {
+            throw ApiException.badRequest("Unsupported file type: " + contentType);
+        }
+        String name = UUID.randomUUID().toString().replace("-", "") + ext;
+        try {
+            Files.createDirectories(privateRoot());
+            Files.write(privateRoot().resolve(name), bytes);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to store file", e);
+        }
+        return PRIVATE_PREFIX + name;
+    }
+
+    @Override
+    public Optional<PrivateFile> readPrivate(String name) {
+        if (name == null || !STORED_NAME.matcher(name).matches()) return Optional.empty();
+        Path file = privateRoot().resolve(name);
+        if (!Files.isRegularFile(file)) return Optional.empty();
+        try {
+            return Optional.of(new PrivateFile(Files.readAllBytes(file), contentTypeOf(name)));
+        } catch (IOException e) {
+            log.warn("Could not read private file {}: {}", name, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    static String contentTypeOf(String name) {
+        String ext = name.substring(name.lastIndexOf('.')).toLowerCase();
+        if (".pdf".equals(ext)) return "application/pdf";
+        return EXTENSIONS.entrySet().stream()
+                .filter(e -> e.getValue().equals(ext))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse("application/octet-stream");
     }
 
     @Override
