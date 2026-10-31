@@ -31,6 +31,9 @@ public class PushService {
 
     private static final Logger log = LoggerFactory.getLogger(PushService.class);
 
+    /** How long FCM keeps a push for a phone that's offline (its maximum, 4 weeks). */
+    static final long TTL_MILLIS = 28L * 24 * 60 * 60 * 1000;
+
     private final ObjectProvider<FirebaseMessaging> messaging;
     private final DeviceTokenRepository tokens;
     private final NotificationPrefsRepository prefs;
@@ -76,14 +79,18 @@ public class PushService {
             List<String> chunk = targets.subList(i, Math.min(i + 500, targets.size()));
             MulticastMessage.Builder builder = MulticastMessage.builder()
                     .setNotification(Notification.builder().setTitle(title).setBody(body).build());
-            // Reminders and announcements use their own Android channel, so members can
-            // mute them in system settings without losing messages.
+            // High priority so Android delivers it straight away even when the phone is
+            // idle (Doze) or the app hasn't been opened for days; kept for up to 4 weeks
+            // while the phone is offline. Reminders and announcements use their own
+            // channel, so members can mute them without losing messages.
+            AndroidConfig.Builder android = AndroidConfig.builder()
+                    .setPriority(AndroidConfig.Priority.HIGH)
+                    .setTtl(TTL_MILLIS);
             String channel = payload.get("channel");
             if (channel != null) {
-                builder.setAndroidConfig(AndroidConfig.builder()
-                        .setNotification(AndroidNotification.builder().setChannelId(channel).build())
-                        .build());
+                android.setNotification(AndroidNotification.builder().setChannelId(channel).build());
             }
+            builder.setAndroidConfig(android.build());
             MulticastMessage message = builder
                     .putAllData(payload)
                     .addAllTokens(chunk)
@@ -119,9 +126,13 @@ public class PushService {
             if (r.isSuccessful()) continue;
             String code = r.getException() != null && r.getException().getMessagingErrorCode() != null
                     ? r.getException().getMessagingErrorCode().name() : "";
-            // Token no longer valid → drop it.
-            if (code.contains("UNREGISTERED") || code.contains("INVALID_ARGUMENT")) {
+            // Only drop tokens FCM says are gone for good. INVALID_ARGUMENT usually means
+            // the message was rejected, not the phone, and dropping a good token silently
+            // stops that member getting anything until they reopen the app.
+            if (code.contains("UNREGISTERED") || code.contains("SENDER_ID_MISMATCH")) {
                 dead.add(chunk.get(i));
+            } else {
+                log.warn("FCM send failed ({}): {}", code, r.getException() == null ? "" : r.getException().getMessage());
             }
         }
         for (String token : dead) {
