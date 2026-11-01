@@ -31,31 +31,44 @@ else
   NEW_JAR=$(ls "$SRC"/target/unkittered-api-*.jar | grep -v '\.original$' | head -1)
 fi
 
-echo "==> Installing $(basename "$NEW_JAR")"
-[[ -f "$JAR" ]] && cp -f "$JAR" "$JAR.prev"
-install -o unkittered -g unkittered -m 0644 "$NEW_JAR" "$JAR"
+# How long a start may take. This VM is short on memory and a cold start can
+# pass 90 s; giving up too early rolled back a version that was still booting.
+START_TIMEOUT=${UNKITTERED_START_TIMEOUT:-240}
 
 healthy() {
-  for _ in $(seq 1 45); do
+  local deadline=$((SECONDS + START_TIMEOUT))
+  while (( SECONDS < deadline )); do
     if curl -fsS "$HEALTH" 2>/dev/null | grep -q '"status":"UP"'; then return 0; fi
-    sleep 2
+    # Crashed outright: no point waiting out the clock.
+    if systemctl is-failed --quiet unkittered-api; then return 1; fi
+    sleep 3
   done
   return 1
 }
 
-echo "==> Restarting unkittered-api"
-systemctl restart unkittered-api
+# The jar is only ever replaced while the service is stopped. Overwriting it
+# under a running JVM makes classes "disappear" mid-start (NoClassDefFoundError),
+# which is exactly what a rollback during a slow start used to do.
+swap_in() {
+  systemctl stop unkittered-api
+  install -o unkittered -g unkittered -m 0644 "$1" "$JAR"
+  systemctl start unkittered-api
+}
+
+echo "==> Installing $(basename "$NEW_JAR")"
+[[ -f "$JAR" ]] && cp -f "$JAR" "$JAR.prev"
+echo "==> Restarting unkittered-api (allowing up to ${START_TIMEOUT}s)"
+swap_in "$NEW_JAR"
 if healthy; then
   echo "✅ Deployed and healthy."
   exit 0
 fi
 
 echo "❌ New version is not healthy. Last log lines:" >&2
-journalctl -u unkittered-api -n 40 --no-pager >&2 || true
+journalctl -u unkittered-api -n 60 --no-pager >&2 || true
 if [[ -f "$JAR.prev" ]]; then
   echo "==> Rolling back to the previous jar" >&2
-  cp -f "$JAR.prev" "$JAR"
-  systemctl restart unkittered-api
+  swap_in "$JAR.prev"
   healthy && echo "↩️  Rolled back; previous version is serving." >&2
 fi
 exit 1
