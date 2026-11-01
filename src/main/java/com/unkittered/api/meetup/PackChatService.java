@@ -6,6 +6,7 @@ import com.unkittered.api.common.ApiException;
 import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileRepository;
 import com.unkittered.api.push.PushService;
+import com.unkittered.api.safety.BlockRepository;
 import com.unkittered.api.realtime.RealtimeGateway;
 import com.unkittered.api.subscription.SubscriptionService;
 import jakarta.validation.constraints.NotBlank;
@@ -58,12 +59,15 @@ public class PackChatService {
     private final PushService push;
     private final PackMessageReactionRepository reactions;
     private final PollVoteRepository votes;
+    private final BlockRepository blocks;
 
     public PackChatService(MeetupRepository meetups, MeetupRsvpRepository rsvps,
                            PackMessageRepository messages, ProfileRepository profiles,
                            MeetupService meetupService, SubscriptionService subscriptions,
                            RealtimeGateway realtime, PushService push,
-                           PackMessageReactionRepository reactions, PollVoteRepository votes) {
+                           PackMessageReactionRepository reactions, PollVoteRepository votes,
+                           BlockRepository blocks) {
+        this.blocks = blocks;
         this.reactions = reactions;
         this.votes = votes;
         this.meetups = meetups;
@@ -443,6 +447,9 @@ public class PackChatService {
     }
 
     private MeetupRsvp requireMember(Meetup m, UUID viewerId) {
+        // Someone the host blocked (or who blocked the host) never sees the chat,
+        // its meeting point or who has arrived.
+        if (blocks.existsBetween(viewerId, m.getHostId())) throw ApiException.forbidden("Join the pack to see its chat.");
         return rsvps.findByMeetupIdAndUserId(m.getId(), viewerId)
                 .orElseThrow(() -> ApiException.forbidden("Join the pack to see its chat."));
     }

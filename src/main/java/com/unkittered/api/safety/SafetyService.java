@@ -5,6 +5,10 @@ import com.unkittered.api.common.ApiException;
 import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.interaction.Match;
 import com.unkittered.api.interaction.MatchRepository;
+import com.unkittered.api.interaction.LikeRepository;
+import com.unkittered.api.interaction.Pass;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.unkittered.api.interaction.PassRepository;
 import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
@@ -27,10 +31,17 @@ public class SafetyService {
     private final UserRepository users;
     private final ProfileMapper mapper;
     private final DiscoverService discoverService;
+    private final LikeRepository likes;
+    private final PassRepository passes;
+    private final JdbcTemplate jdbc;
 
     public SafetyService(BlockRepository blocks, ReportRepository reports, MatchRepository matches,
                          MessageRepository messages, ProfileRepository profiles, UserRepository users,
-                         ProfileMapper mapper, DiscoverService discoverService) {
+                         ProfileMapper mapper, DiscoverService discoverService, LikeRepository likes,
+                         PassRepository passes, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+        this.passes = passes;
+        this.likes = likes;
         this.blocks = blocks;
         this.reports = reports;
         this.matches = matches;
@@ -52,6 +63,13 @@ public class SafetyService {
             blocks.save(new Block(blockerId, blockedId));
         }
         removeMatchBetween(blockerId, blockedId);
+        // Neither stays in a pack the other is hosting (upcoming or happening now),
+        // so the chat, meeting point and arrivals are closed to them.
+        jdbc.update("""
+                DELETE FROM meetup_rsvps r USING meetups m
+                WHERE r.meetup_id = m.id AND m.starts_at + make_interval(mins => m.duration_minutes) > now()
+                  AND ((m.host_id = ? AND r.user_id = ?) OR (m.host_id = ? AND r.user_id = ?))
+                """, blockerId, blockedId, blockedId, blockerId);
         evictBoth(blockerId, blockedId);
     }
 
@@ -90,6 +108,12 @@ public class SafetyService {
         }
         messages.deleteByMatchId(matchId);
         matches.delete(m);
+        // Otherwise one wag from either of them would bring the match straight back.
+        likes.deleteBetween(m.getUserLow(), m.getUserHigh());
+        // ...and they shouldn't turn up in the deck of the person who ended it.
+        UUID other = m.getUserLow().equals(userId) ? m.getUserHigh() : m.getUserLow();
+        if (!passes.existsByPasserIdAndPasseeId(userId, other)) passes.save(new Pass(userId, other));
+        evictBoth(userId, other);
     }
 
     // ── internals ────────────────────────────────────────────────────────────
@@ -99,6 +123,7 @@ public class SafetyService {
             messages.deleteByMatchId(m.getId());
             matches.delete(m);
         });
+        likes.deleteBetween(a, b);
     }
 
     private void requireOther(UUID actor, UUID target) {

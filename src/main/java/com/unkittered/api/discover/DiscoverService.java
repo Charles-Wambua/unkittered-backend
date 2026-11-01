@@ -54,7 +54,7 @@ public class DiscoverService {
         if (cached instanceof List<?> list) {
             // The cache stores untyped JSON, so entries come back as maps.
             List<ProfileDto> deck = json.convertValue(list, DECK);
-            // Someone who paused since this deck was built disappears right away.
+            // Someone who paused (or was suspended) since this deck was built disappears right away.
             Set<UUID> paused = new HashSet<>(profiles.findPausedAmong(
                     deck.stream().map(p -> UUID.fromString(p.id())).toList()));
             return paused.isEmpty() ? deck
@@ -194,6 +194,18 @@ public class DiscoverService {
         return count;
     }
 
+    /**
+     * Distance in bands, never exact: under 1 km (0.5), then whole km up to 10,
+     * steps of 5 up to 50, then steps of 10. Exact figures from a few made-up
+     * locations would pin down where someone lives; bands only give an area.
+     */
+    static double coarseKm(double d) {
+        if (d < 1) return 0.5;
+        if (d < 10) return Math.ceil(d);
+        if (d < 50) return Math.ceil(d / 5) * 5;
+        return Math.ceil(d / 10) * 10;
+    }
+
     /** Haversine when both have coordinates; otherwise a sensible default. */
     private double distanceKm(Profile viewer, Profile candidate) {
         if (viewer == null
@@ -209,6 +221,6 @@ public class DiscoverService {
         double h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
         double d = 2 * r * Math.asin(Math.sqrt(h));
-        return Math.round(d * 10.0) / 10.0;
+        return coarseKm(d);
     }
 }

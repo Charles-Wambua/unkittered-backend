@@ -3,6 +3,7 @@ package com.unkittered.api.pet;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.pet.PetDtos.PetDto;
 import com.unkittered.api.pet.PetDtos.PetInput;
+import com.unkittered.api.storage.MediaUrls;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,8 +18,10 @@ import java.util.stream.Collectors;
 public class PetService {
 
     private final PetRepository pets;
+    private final MediaUrls media;
 
-    public PetService(PetRepository pets) {
+    public PetService(PetRepository pets, MediaUrls media) {
+        this.media = media;
         this.pets = pets;
     }
 
@@ -37,6 +40,9 @@ public class PetService {
         if (inputs.size() > PetDtos.MAX_PETS) {
             throw ApiException.badRequest("You can add up to " + PetDtos.MAX_PETS + " animals");
         }
+        // Photos they already had can stay; new ones must be uploads.
+        List<String> hadPhotos = pets.findByOwnerIdOrderByPositionAsc(ownerId).stream()
+                .map(Pet::getPhotoUrl).filter(u -> u != null).toList();
         pets.deleteByOwnerId(ownerId);
         pets.flush();
 
@@ -49,7 +55,7 @@ public class PetService {
             p.setBreedAndAge(in.breedAndAge() == null ? "" : in.breedAndAge().trim());
             p.setEnergy((short) (in.energy() == null ? 3 : in.energy()));
             p.setComesOnDates(in.comesOnDates() == null || in.comesOnDates());
-            p.setPhotoUrl(blankToNull(in.photoUrl()));
+            p.setPhotoUrl(blankToNull(media.require(in.photoUrl(), hadPhotos)));
             p.setTemperaments(in.getsAlongWith() == null ? new LinkedHashSet<>()
                     : in.getsAlongWith().stream().map(PetEnums.Temperament::wire)
                             .collect(Collectors.toCollection(LinkedHashSet::new)));

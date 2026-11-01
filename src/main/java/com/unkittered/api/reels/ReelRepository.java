@@ -19,7 +19,8 @@ public interface ReelRepository extends JpaRepository<Reel, UUID> {
         FROM reels r
         JOIN profiles p ON p.user_id = r.user_id
         WHERE r.user_id <> :viewerId
-          AND p.incognito = false
+          AND p.incognito = false AND p.paused = false
+          AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = r.user_id AND u.suspended)
           AND r.user_id NOT IN (SELECT b.blocked_id FROM blocks b WHERE b.blocker_id = :viewerId)
           AND r.user_id NOT IN (SELECT b.blocker_id FROM blocks b WHERE b.blocked_id = :viewerId)
         ORDER BY r.user_id, r.created_at DESC

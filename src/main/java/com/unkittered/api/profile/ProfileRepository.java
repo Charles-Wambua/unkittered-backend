@@ -30,7 +30,7 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
         SELECT p FROM Profile p
         WHERE p.userId <> :viewerId
           AND p.userId IN (
-              SELECT u.id FROM User u WHERE u.onboardingComplete = true
+              SELECT u.id FROM User u WHERE u.onboardingComplete = true AND u.suspended = false
           )
           AND p.userId NOT IN (
               SELECT l.likeeId FROM Like l WHERE l.likerId = :viewerId
@@ -56,8 +56,12 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
         """)
     List<Profile> findDeckFor(@Param("viewerId") UUID viewerId, @Param("now") Instant now);
 
-    /** Which of these profiles are paused (applied to cached decks so pausing is immediate). */
-    @Query("SELECT p.userId FROM Profile p WHERE p.paused = true AND p.userId IN :ids")
+    /**
+     * Which of these profiles are paused or whose account is suspended (applied to
+     * cached decks, so either takes effect right away).
+     */
+    @Query("SELECT p.userId FROM Profile p WHERE p.userId IN :ids AND (p.paused = true "
+            + "OR p.userId IN (SELECT u.id FROM User u WHERE u.suspended = true))")
     List<UUID> findPausedAmong(@Param("ids") Collection<UUID> ids);
 
     /**
@@ -70,6 +74,7 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
         WHERE p.userId IN (
             SELECT l.likerId FROM Like l WHERE l.likeeId = :viewerId
         )
+          AND p.userId IN (SELECT u.id FROM User u WHERE u.suspended = false)
           AND p.userId NOT IN (
               SELECT l2.likeeId FROM Like l2 WHERE l2.likerId = :viewerId
           )

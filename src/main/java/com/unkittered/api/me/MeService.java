@@ -11,6 +11,7 @@ import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
 import com.unkittered.api.profile.SterilisationProcedure;
+import com.unkittered.api.storage.MediaUrls;
 import com.unkittered.api.user.User;
 import com.unkittered.api.user.UserRepository;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /** Self-service operations for the authenticated user (account + own profile). */
@@ -33,11 +35,13 @@ public class MeService {
     private final DiscoverService discoverService;
     private final PetService pets;
     private final PasswordEncoder passwords;
+    private final MediaUrls media;
     private static final Logger log = LoggerFactory.getLogger(MeService.class);
 
     public MeService(UserRepository users, ProfileRepository profiles,
                      ProfileMapper mapper, DiscoverService discoverService, PetService pets,
-                     PasswordEncoder passwords) {
+                     PasswordEncoder passwords, MediaUrls media) {
+        this.media = media;
         this.passwords = passwords;
         this.pets = pets;
         this.users = users;
@@ -79,7 +83,7 @@ public class MeService {
             user.setDisplayName(req.name().trim());
         }
         if (req.age() != null)                p.setAge(req.age());
-        if (req.imageUrl() != null)           p.setImageUrl(req.imageUrl());
+        if (req.imageUrl() != null)           p.setImageUrl(media.require(req.imageUrl(), p.getImageUrl() == null ? List.of() : List.of(p.getImageUrl())));
         if (req.bio() != null)                p.setBio(req.bio());
         if (req.location() != null)           p.setLocation(req.location());
         if (req.occupation() != null)         p.setOccupation(req.occupation());
@@ -101,7 +105,10 @@ public class MeService {
             }
         }
         if (req.interests() != null)          p.setInterests(new ArrayList<>(req.interests()));
-        if (req.galleryImages() != null)      p.setGalleryImages(new ArrayList<>(req.galleryImages()));
+        if (req.galleryImages() != null) {
+            List<String> had = p.getGalleryImages() == null ? List.of() : p.getGalleryImages();
+            p.setGalleryImages(new ArrayList<>(req.galleryImages().stream().map(g -> media.require(g, had)).toList()));
+        }
         if (req.animals() != null) {
             p.setPets(new ArrayList<>(pets.replaceAll(userId, req.animals())));
         } else if (req.pets() != null) {

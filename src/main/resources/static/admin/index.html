@@ -985,7 +985,7 @@
     // Compact member summary used in review rows.
     function memberCard(m){
       const img = m.imageUrl
-        ? `<img class="ph" src="${mediaUrl(m.imageUrl)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`
+        ? `<img class="ph" src="${esc(mediaUrl(m.imageUrl))}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`
         : `<span class="ph av" style="width:64px;height:64px;border-radius:18px;font-size:22px">${esc((m.name||'?').slice(0,1).toUpperCase())}</span>`;
       const facts = [m.age ? m.age+' yrs' : '', m.location||''].filter(Boolean).join(' · ');
       return `<div class="mcard">${img}<div>
@@ -1052,7 +1052,7 @@
     const privateBlobs = {};
     const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
     function isPrivate(u){ return typeof u === 'string' && u.startsWith('/private/'); }
-    function imgSrc(u){ return isPrivate(u) ? `src="${BLANK}" data-private="${esc(u)}"` : `src="${mediaUrl(u)}"`; }
+    function imgSrc(u){ return isPrivate(u) ? `src="${BLANK}" data-private="${esc(u)}"` : `src="${esc(mediaUrl(u))}"`; }
     async function privateUrl(u){
       if(privateBlobs[u]) return privateBlobs[u];
       const res = await fetchT(API + '/admin/private-files/' + encodeURIComponent(u.slice('/private/'.length)),
@@ -1190,7 +1190,7 @@
     function searchMembersSoon(){ clearTimeout(searchMembersSoon._t); searchMembersSoon._t = setTimeout(searchMembers, 300); }
     function avatar(m, size, radius){
       return m.imageUrl
-        ? `<img class="thumb" style="width:${size}px;height:${size}px;border-radius:${radius}px" src="${mediaUrl(m.imageUrl)}" alt="" onerror="this.style.opacity=.2"/>`
+        ? `<img class="thumb" style="width:${size}px;height:${size}px;border-radius:${radius}px" src="${esc(mediaUrl(m.imageUrl))}" alt="" onerror="this.style.opacity=.2"/>`
         : `<span class="av" style="width:${size}px;height:${size}px;border-radius:${radius}px">${esc((m.name||'?').slice(0,1).toUpperCase())}</span>`;
     }
     async function searchMembers(){
@@ -1220,15 +1220,15 @@
       try{
         const m = await api('/admin/members/'+id);
         const c = m.counts||{};
-        const gallery = (m.gallery||[]).map(g=>`<img src="${mediaUrl(g)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`).join('');
-        const pets = (m.pets||[]).map(p=>`<div class="sysrow"><span class="k">${p.photoUrl?`<img src="${mediaUrl(p.photoUrl)}" class="thumb" style="width:34px;height:34px;display:inline-block;vertical-align:middle;margin-right:8px;border-radius:10px" onclick="zoom(this.src)" alt=""/>`:''}${esc(p.name)}</span><span class="v">${esc(nice(p.species))}${p.breedAndAge?' · '+esc(p.breedAndAge):''}</span></div>`).join('');
+        const gallery = (m.gallery||[]).map(g=>`<img src="${esc(mediaUrl(g))}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`).join('');
+        const pets = (m.pets||[]).map(p=>`<div class="sysrow"><span class="k">${p.photoUrl?`<img src="${esc(mediaUrl(p.photoUrl))}" class="thumb" style="width:34px;height:34px;display:inline-block;vertical-align:middle;margin-right:8px;border-radius:10px" onclick="zoom(this.src)" alt=""/>`:''}${esc(p.name)}</span><span class="v">${esc(nice(p.species))}${p.breedAndAge?' · '+esc(p.breedAndAge):''}</span></div>`).join('');
         const reps = (m.reportsAgainst||[]).map(r=>`<div style="padding:10px 0;border-bottom:1px solid var(--line)">
             <div class="tags" style="margin:0"><span class="pill">${esc(nice(r.reason))}</span><span class="meta-line">by ${esc(r.reporterName||'someone')} · ${fmtDate(r.at)}</span></div>
             ${r.details?`<div class="quote">${esc(r.details)}</div>`:''}</div>`).join('');
         const row = (k,v) => (v===null||v===undefined||v==='') ? '' : `<div class="sysrow"><span class="k">${k}</span><span class="v">${v}</span></div>`;
         body.innerHTML = `
           <div class="hero-ph">
-            ${m.imageUrl?`<img src="${mediaUrl(m.imageUrl)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`:`<span class="av" style="width:96px;height:96px;border-radius:26px;font-size:34px">${esc((m.name||'?').slice(0,1).toUpperCase())}</span>`}
+            ${m.imageUrl?`<img src="${esc(mediaUrl(m.imageUrl))}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`:`<span class="av" style="width:96px;height:96px;border-radius:26px;font-size:34px">${esc((m.name||'?').slice(0,1).toUpperCase())}</span>`}
             <div><h3>${esc(m.name||'No name yet')}${m.age?', '+m.age:''}</h3>
               <div class="meta-line">${esc(m.email||'')}</div>
               <div class="tags">
@@ -1380,7 +1380,7 @@
     }
 
     function mediaUrl(u){
-      if(!u) return '';
+      if(!u || !/^(\/|https?:\/\/)/i.test(u)) return '';  // no javascript:, data: and the like
       if(u.startsWith('/')) return location.origin + u;
       if(/^https?:\/\/(localhost|127\.0\.0\.1|10\.|192\.168|172\.)/.test(u)){
         const i = u.indexOf('/', u.indexOf('://')+3);

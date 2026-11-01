@@ -2,6 +2,7 @@ package com.unkittered.api.stories;
 
 import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileRepository;
+import com.unkittered.api.storage.MediaUrls;
 import com.unkittered.api.stories.StoryDtos.StoryDto;
 import com.unkittered.api.stories.StoryDtos.StoryItemDto;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,10 @@ public class StoryService {
 
     private final StoryRepository stories;
     private final ProfileRepository profiles;
+    private final MediaUrls media;
 
-    public StoryService(StoryRepository stories, ProfileRepository profiles) {
+    public StoryService(StoryRepository stories, ProfileRepository profiles, MediaUrls media) {
+        this.media = media;
         this.stories = stories;
         this.profiles = profiles;
     }
@@ -73,7 +76,7 @@ public class StoryService {
     /** Post a new frame. At least one of an image URL or text must be present. */
     @Transactional
     public Story add(UUID userId, String imageUrl, String text) {
-        return stories.save(new Story(userId, imageUrl, text));
+        return stories.save(new Story(userId, media.require(imageUrl, null), text));
     }
 
     /** Remove all of the user's story frames. */

@@ -9,6 +9,7 @@ import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
 import com.unkittered.api.push.PushService;
+import com.unkittered.api.safety.BlockRepository;
 import com.unkittered.api.realtime.RealtimeGateway;
 import com.unkittered.api.user.User;
 import com.unkittered.api.user.UserRepository;
@@ -38,6 +39,7 @@ public class InteractionService {
     private final RedisTemplate<String, Object> redis;
     private final RealtimeGateway realtime;
     private final PushService push;
+    private final BlockRepository blocks;
 
     /** At most one "someone wagged" push per member in this window; the rest just update the count. */
     static final Duration WAG_PUSH_GAP = Duration.ofHours(1);
@@ -45,7 +47,9 @@ public class InteractionService {
     public InteractionService(LikeRepository likes, PassRepository passes, MatchRepository matches,
                               UserRepository users, ProfileRepository profiles, ProfileMapper mapper,
                               MatchEventPublisher matchPublisher, DiscoverService discoverService,
-                              RedisTemplate<String, Object> redis, RealtimeGateway realtime, PushService push) {
+                              RedisTemplate<String, Object> redis, RealtimeGateway realtime, PushService push,
+                              BlockRepository blocks) {
+        this.blocks = blocks;
         this.push = push;
         this.likes = likes;
         this.passes = passes;
@@ -153,7 +157,8 @@ public class InteractionService {
         if (actor.equals(target)) {
             throw ApiException.badRequest("You cannot interact with your own profile");
         }
-        if (!profiles.existsById(target)) {
+        // Blocked either way: as far as they are concerned, the profile is gone.
+        if (!profiles.existsById(target) || blocks.existsBetween(actor, target)) {
             throw ApiException.notFound("Profile not found");
         }
     }

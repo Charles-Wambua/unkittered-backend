@@ -9,6 +9,7 @@ import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileRepository;
 import com.unkittered.api.push.PushService;
 import com.unkittered.api.safety.BlockRepository;
+import com.unkittered.api.user.UserRepository;
 import com.unkittered.api.subscription.SubscriptionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,12 +41,15 @@ public class MeetupService {
     private final PackMessageRepository chat;
     private final PushService push;
     private final BlockRepository blocks;
+    private final UserRepository users;
     private final DiscoverService discover;
 
     public MeetupService(MeetupRepository meetups, MeetupRsvpRepository rsvps,
                          MeetupReportRepository reports, ProfileRepository profiles,
                          SubscriptionService subscriptions, PackMessageRepository chat,
-                         PushService push, BlockRepository blocks, DiscoverService discover) {
+                         PushService push, BlockRepository blocks, DiscoverService discover,
+                         UserRepository users) {
+        this.users = users;
         this.subscriptions = subscriptions;
         this.chat = chat;
         this.push = push;
@@ -107,9 +111,16 @@ public class MeetupService {
     @Transactional(readOnly = true)
     public List<MeetupDto> feedFor(UUID viewerId) {
         Instant now = Instant.now();
+        // Packs hosted by someone they blocked, or who blocked them, aren't shown.
+        Set<UUID> hidden = new java.util.HashSet<>(blocks.findBlockedIds(viewerId));
+        hidden.addAll(blocks.findBlockerIds(viewerId));
         List<MeetupDto> out = new ArrayList<>();
-        for (Meetup m : meetups.findByStartsAtAfterOrderByStartsAtAsc(now.minus(Duration.ofDays(1)))) {
-            if (m.getEndsAt().isAfter(now)) out.add(toDto(m, viewerId, now));
+        List<Meetup> upcoming = meetups.findByStartsAtAfterOrderByStartsAtAsc(now.minus(Duration.ofDays(1)));
+        // ...nor packs whose host has been suspended.
+        Set<UUID> hosts = upcoming.stream().map(Meetup::getHostId).collect(Collectors.toSet());
+        if (!hosts.isEmpty()) hidden.addAll(users.findSuspendedIds(hosts));
+        for (Meetup m : upcoming) {
+            if (m.getEndsAt().isAfter(now) && !hidden.contains(m.getHostId())) out.add(toDto(m, viewerId, now));
         }
         return out;
     }
@@ -132,6 +143,7 @@ public class MeetupService {
     public MeetupDto one(UUID meetupId, UUID viewerId) {
         Meetup m = meetups.findById(meetupId)
                 .orElseThrow(() -> ApiException.notFound("This pack no longer exists"));
+        if (blocks.existsBetween(viewerId, m.getHostId())) throw ApiException.notFound("This pack no longer exists");
         return toDto(m, viewerId, Instant.now());
     }
 
@@ -163,6 +175,7 @@ public class MeetupService {
     public MeetupDto rsvp(UUID meetupId, UUID userId, boolean joining, boolean withPet) {
         Meetup m = meetups.findById(meetupId)
                 .orElseThrow(() -> ApiException.notFound("Meetup not found"));
+        if (joining && blocks.existsBetween(userId, m.getHostId())) throw ApiException.notFound("Meetup not found");
         Instant now = Instant.now();
         if (!PackTimeline.acceptsRsvps(m, now)) {
             throw ApiException.conflict("ended".equals(PackTimeline.status(m, now))
