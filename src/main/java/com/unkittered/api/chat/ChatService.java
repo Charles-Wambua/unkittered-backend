@@ -21,7 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import com.unkittered.api.user.UserRepository;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,6 +45,7 @@ public class ChatService {
     private final PlanFeedbackRepository feedback;
     private final ChatClearRepository clears;
     private final MessageReactionRepository reactions;
+    private final UserRepository users;
     /** Public base our storage serves media from (may be empty = relative URLs). */
     private final String mediaBase;
 
@@ -49,11 +53,12 @@ public class ChatService {
                        ProfileRepository profiles, ProfileMapper mapper,
                        RealtimeGateway realtime, SubscriptionService subscriptions,
                        PushService push, PetRepository pets, PlanFeedbackRepository feedback,
-                       ChatClearRepository clears, MessageReactionRepository reactions,
+                       ChatClearRepository clears, MessageReactionRepository reactions, UserRepository users,
                        @Value("${unkittered.storage.public-base-url:}") String mediaBase) {
         this.feedback = feedback;
         this.clears = clears;
         this.reactions = reactions;
+        this.users = users;
         this.mediaBase = mediaBase.replaceAll("/+$", "");
         this.matches = matches;
         this.messages = messages;
@@ -67,7 +72,7 @@ public class ChatService {
 
     @Transactional(readOnly = true)
     public List<MatchDto> matchesFor(UUID viewerId) {
-        return matches.findAllForUser(viewerId).stream()
+        return visibleMatches(viewerId).stream()
                 .map(m -> new MatchDto(
                         m.getId().toString(),
                         otherProfile(m, viewerId),
@@ -77,7 +82,7 @@ public class ChatService {
 
     @Transactional(readOnly = true)
     public List<ConversationDto> conversationsFor(UUID viewerId) {
-        return matches.findAllForUser(viewerId).stream()
+        return visibleMatches(viewerId).stream()
                 .map(m -> {
                     // "Delete chat" hides everything up to when it was cleared.
                     Instant cleared = clearedAt(viewerId, m.getId());
@@ -393,6 +398,19 @@ public class ChatService {
                 && (url.startsWith(mediaBase + "/files/") || url.startsWith("/files/"));
     }
 
+    /**
+     * Posts the pet note someone left with a super-like as their message in a
+     * new match. It was moderated when it was sent; the match push tells the
+     * other person, so this adds no push of its own.
+     */
+    @Transactional
+    public void deliverPetNote(UUID matchId, UUID senderId, String fromPet, String toPet, String note) {
+        RichMessages.Prepared prepared = RichMessages.prepare(RichMessages.Kind.PET_NOTE, note,
+                Map.of("fromPet", fromPet, "toPet", toPet, "text", note), senderId,
+                planId -> null, this::isOwnMediaUrl, Instant.now());
+        messages.save(new Message(matchId, senderId, prepared));
+    }
+
     // ── internals ────────────────────────────────────────────────────────────
 
     private Match requireMembership(UUID matchId, UUID viewerId) {
@@ -402,7 +420,21 @@ public class ChatService {
             // Don't reveal that the match exists to non-participants.
             throw ApiException.notFound("Conversation not found");
         }
+        // A suspended member's chats are closed to the other person too.
+        if (!users.existsByIdAndSuspendedFalse(otherUserId(m, viewerId))) {
+            throw ApiException.notFound("Conversation not found");
+        }
         return m;
+    }
+
+    /** The viewer's matches, minus anyone whose account is suspended (they're hidden from everyone). */
+    private List<Match> visibleMatches(UUID viewerId) {
+        List<Match> all = matches.findAllForUser(viewerId);
+        if (all.isEmpty()) return all;
+        Set<UUID> suspended = new HashSet<>(users.findSuspendedIds(
+                all.stream().map(m -> otherUserId(m, viewerId)).toList()));
+        return suspended.isEmpty() ? all
+                : all.stream().filter(m -> !suspended.contains(otherUserId(m, viewerId))).toList();
     }
 
     private UUID otherUserId(Match m, UUID viewerId) {

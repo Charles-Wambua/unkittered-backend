@@ -24,6 +24,9 @@ public class InteractionController {
         this.interactions = interactions;
     }
 
+    /** A super-like, optionally with a pet note (up to 300 characters) and the pets it's from and to. */
+    public record SuperLikeRequest(@NotBlank String profileId, String note, String fromPet, String toPet) { }
+
     public record TargetRequest(@NotBlank String profileId) {
         UUID uuid() {
             try {
@@ -45,8 +48,8 @@ public class InteractionController {
 
     @Operation(summary = "Super-like a profile")
     @PostMapping("/super-likes")
-    public MatchResult superLike(@RequestBody TargetRequest req) {
-        var outcome = interactions.like(CurrentUser.id(), req.uuid(), true);
+    public MatchResult superLike(@RequestBody SuperLikeRequest req) {
+        var outcome = interactions.like(CurrentUser.id(), new TargetRequest(req.profileId()).uuid(), true, req.note(), req.fromPet(), req.toPet());
         return new MatchResult(outcome.isMatch(), outcome.alreadyMatched());
     }
 

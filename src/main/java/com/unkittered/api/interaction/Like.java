@@ -21,6 +21,16 @@ public class Like {
     @Column(name = "super_like", nullable = false)
     private boolean superLike = false;
 
+    /** A pet note sent with a super-like; posted into the chat when they match. */
+    @Column(length = 300)
+    private String note;
+
+    @Column(name = "note_from_pet", length = 30)
+    private String noteFromPet;
+
+    @Column(name = "note_to_pet", length = 30)
+    private String noteToPet;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -37,4 +47,9 @@ public class Like {
     public UUID getLikeeId() { return likeeId; }
     public boolean isSuperLike() { return superLike; }
     public Instant getCreatedAt() { return createdAt; }
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
+    public String getNoteFromPet() { return noteFromPet; }
+    public String getNoteToPet() { return noteToPet; }
+    public void setNotePets(String from, String to) { this.noteFromPet = from; this.noteToPet = to; }
 }

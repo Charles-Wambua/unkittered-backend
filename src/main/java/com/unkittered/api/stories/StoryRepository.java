@@ -20,6 +20,7 @@ public interface StoryRepository extends JpaRepository<Story, UUID> {
         SELECT s.*
         FROM stories s
         WHERE s.created_at >= :cutoff
+          AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id AND u.suspended)
           AND (
             s.user_id = :viewerId
             OR s.user_id IN (

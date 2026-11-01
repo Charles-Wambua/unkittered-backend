@@ -90,7 +90,8 @@ public class MeetupService {
         if (!rsvps.existsByMeetupIdAndUserId(meetupId, viewerId)
                 || !rsvps.existsByMeetupIdAndUserId(meetupId, memberId)
                 || blocks.existsByBlockerIdAndBlockedId(viewerId, memberId)
-                || blocks.existsByBlockerIdAndBlockedId(memberId, viewerId)) {
+                || blocks.existsByBlockerIdAndBlockedId(memberId, viewerId)
+                || !users.existsByIdAndSuspendedFalse(memberId)) {
             throw ApiException.notFound("Profile not found");
         }
         Profile p = profiles.findById(memberId).orElseThrow(() -> ApiException.notFound("Profile not found"));

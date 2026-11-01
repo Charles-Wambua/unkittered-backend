@@ -1,6 +1,10 @@
 package com.unkittered.api.interaction;
 
 import com.unkittered.api.common.ApiException;
+import com.unkittered.api.chat.ChatService;
+import com.unkittered.api.chat.MessageModeration;
+import com.unkittered.api.pet.Pet;
+import com.unkittered.api.pet.PetRepository;
 import com.unkittered.api.subscription.Allowances;
 import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.messaging.MatchCreatedEvent;
@@ -40,6 +44,8 @@ public class InteractionService {
     private final RealtimeGateway realtime;
     private final PushService push;
     private final BlockRepository blocks;
+    private final ChatService chat;
+    private final PetRepository pets;
 
     /** At most one "someone wagged" push per member in this window; the rest just update the count. */
     static final Duration WAG_PUSH_GAP = Duration.ofHours(1);
@@ -48,7 +54,9 @@ public class InteractionService {
                               UserRepository users, ProfileRepository profiles, ProfileMapper mapper,
                               MatchEventPublisher matchPublisher, DiscoverService discoverService,
                               RedisTemplate<String, Object> redis, RealtimeGateway realtime, PushService push,
-                              BlockRepository blocks) {
+                              BlockRepository blocks, ChatService chat, PetRepository pets) {
+        this.pets = pets;
+        this.chat = chat;
         this.blocks = blocks;
         this.push = push;
         this.likes = likes;
@@ -72,7 +80,28 @@ public class InteractionService {
      */
     @Transactional
     public LikeOutcome like(UUID likerId, UUID likeeId, boolean superLike) {
+        return like(likerId, likeeId, superLike, null, null, null);
+    }
+
+    /** Longest pet note a super-like can carry. */
+    static final int MAX_NOTE = 300;
+
+    /**
+     * A (super)like, optionally with a pet note. The note is checked like a
+     * chat message now (so a refusal costs nothing) and posted as the sender's
+     * first message when they match, straight away if this makes the match.
+     */
+    @Transactional
+    public LikeOutcome like(UUID likerId, UUID likeeId, boolean superLike, String rawNote,
+                            String fromPet, String toPet) {
         validateTarget(likerId, likeeId);
+        String note = rawNote == null || rawNote.isBlank() ? null : rawNote.trim();
+        if (note != null) {
+            if (note.length() > MAX_NOTE) throw ApiException.badRequest("Keep your note under " + MAX_NOTE + " characters.");
+            MessageModeration.Flag flag = MessageModeration.check(note,
+                    "gold".equalsIgnoreCase(users.findById(likerId).map(User::getSubscriptionTier).orElse("free")));
+            if (flag != MessageModeration.Flag.CLEAN) throw ApiException.badRequest(MessageModeration.reason(flag));
+        }
         if (matches.existsByUserLowAndUserHigh(Match.low(likerId, likeeId), Match.high(likerId, likeeId))) {
             return new LikeOutcome(true, true);
         }
@@ -80,7 +109,10 @@ public class InteractionService {
         boolean fresh = !likes.existsByLikerIdAndLikeeId(likerId, likeeId);
         if (fresh) {
             enforceDailyLimit(likerId, superLike);
-            likes.save(new Like(likerId, likeeId, superLike));
+            Like like = new Like(likerId, likeeId, superLike);
+            like.setNote(note);
+            if (note != null) like.setNotePets(petName(fromPet, likerId), petName(toPet, likeeId));
+            likes.save(like);
         }
 
         boolean isMatch = false;
@@ -103,6 +135,21 @@ public class InteractionService {
      * it off). Like the live ping it names nobody, and it's sent at most once per
      * {@link #WAG_PUSH_GAP} so a popular profile isn't buzzed for every wag.
      */
+    /**
+     * The pet a note is from or to: what the app sent, else the person's first
+     * animal, else their first name (people can send notes without pets).
+     */
+    private String petName(String given, UUID owner) {
+        String name = given == null ? "" : given.trim();
+        if (name.isEmpty()) {
+            name = pets.findByOwnerIdOrderByPositionAsc(owner).stream().map(Pet::getName)
+                    .filter(n -> n != null && !n.isBlank()).findFirst()
+                    .orElseGet(() -> profiles.findById(owner).map(p -> p.getName() == null ? "" : p.getName().trim().split("\\s+")[0])
+                            .filter(n -> !n.isBlank()).orElse("A friend"));
+        }
+        return name.length() > 30 ? name.substring(0, 30) : name;
+    }
+
     private void notifyWag(UUID likeeId) {
         try {
             Boolean first = redis.opsForValue().setIfAbsent("wagpush:" + likeeId, 1, WAG_PUSH_GAP);
@@ -147,6 +194,11 @@ public class InteractionService {
             return true;
         }
         Match match = matches.save(Match.of(a, b));
+        // Pet notes either of them left come first in the chat, oldest first.
+        likes.findByLikerIdAndLikeeId(b, a).filter(l -> l.getNote() != null)
+                .ifPresent(l -> chat.deliverPetNote(match.getId(), b, l.getNoteFromPet(), l.getNoteToPet(), l.getNote()));
+        likes.findByLikerIdAndLikeeId(a, b).filter(l -> l.getNote() != null)
+                .ifPresent(l -> chat.deliverPetNote(match.getId(), a, l.getNoteFromPet(), l.getNoteToPet(), l.getNote()));
         discoverService.evict(b);
         matchPublisher.publish(new MatchCreatedEvent(
                 match.getId(), a, b, superLike, match.getCreatedAt()));

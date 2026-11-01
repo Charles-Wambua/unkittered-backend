@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface LikeRepository extends JpaRepository<Like, UUID> {
     boolean existsByLikerIdAndLikeeId(UUID likerId, UUID likeeId);
+    java.util.Optional<Like> findByLikerIdAndLikeeId(UUID likerId, UUID likeeId);
     long countByLikerIdAndCreatedAtAfter(UUID likerId, java.time.Instant after);
 
     /**
