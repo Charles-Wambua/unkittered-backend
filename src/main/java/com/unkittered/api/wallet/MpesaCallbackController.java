@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -39,14 +40,20 @@ public class MpesaCallbackController {
         if (body.get("Body") instanceof Map<?, ?> b && b.get("stkCallback") instanceof Map<?, ?> cb) {
             Object ref = cb.get("CheckoutRequestID");
             boolean ok = "0".equals(String.valueOf(cb.get("ResultCode")));
-            if (ref != null) wallet.completeTopUp(ref.toString(), ok);
+            Object amount = metadata(cb, "Amount");
+            Object phone = metadata(cb, "PhoneNumber");
+            if (ref != null) {
+                wallet.completeTopUp(ref.toString(), ok,
+                        amount instanceof Number n ? (int) Math.round(n.doubleValue()) : null,
+                        phone == null ? null : new java.math.BigDecimal(phone.toString()).toPlainString());
+            }
         } else {
             log.warn("Malformed STK callback");
         }
         return ResponseEntity.ok(ACCEPTED);
     }
 
-    @PostMapping({"/b2c-result", "/b2c-timeout"})
+    @PostMapping("/b2c-result")
     public ResponseEntity<Map<String, Object>> b2c(@PathVariable String token, @RequestBody Map<String, Object> body) {
         if (!authorised(token)) return ResponseEntity.notFound().build();
         if (body.get("Result") instanceof Map<?, ?> r) {
@@ -57,6 +64,27 @@ public class MpesaCallbackController {
             log.warn("Malformed B2C result");
         }
         return ResponseEntity.ok(ACCEPTED);
+    }
+
+    /** The queue timed out: not a failure (it may still be paid), so nothing is refunded. */
+    @PostMapping("/b2c-timeout")
+    public ResponseEntity<Map<String, Object>> b2cTimeout(@PathVariable String token,
+                                                          @RequestBody Map<String, Object> body) {
+        if (!authorised(token)) return ResponseEntity.notFound().build();
+        if (body.get("Result") instanceof Map<?, ?> r && r.get("OriginatorConversationID") != null) {
+            wallet.payoutTimedOut(r.get("OriginatorConversationID").toString());
+        }
+        return ResponseEntity.ok(ACCEPTED);
+    }
+
+    /** One value from an STK callback's {@code CallbackMetadata.Item} list. */
+    static Object metadata(Map<?, ?> callback, String name) {
+        if (callback.get("CallbackMetadata") instanceof Map<?, ?> md && md.get("Item") instanceof List<?> items) {
+            for (Object o : items) {
+                if (o instanceof Map<?, ?> item && name.equals(item.get("Name"))) return item.get("Value");
+            }
+        }
+        return null;
     }
 
     private boolean authorised(String presented) {

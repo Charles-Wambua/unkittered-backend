@@ -5,8 +5,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -44,7 +47,11 @@ class DarajaMpesaGateway implements MpesaGateway {
     DarajaMpesaGateway(String baseUrl, String consumerKey, String consumerSecret, String shortcode,
                        String passkey, String callbackBaseUrl, String callbackToken, String b2cShortcode,
                        String initiatorName, String securityCredential) {
-        this.http = RestClient.builder().baseUrl(baseUrl).build();
+        // Bounded, so a slow M-Pesa can't hold a member's wallet locked for long.
+        var timeouts = new SimpleClientHttpRequestFactory();
+        timeouts.setConnectTimeout(Duration.ofSeconds(5));
+        timeouts.setReadTimeout(Duration.ofSeconds(20));
+        this.http = RestClient.builder().baseUrl(baseUrl).requestFactory(timeouts).build();
         this.consumerKey = consumerKey;
         this.consumerSecret = consumerSecret;
         this.shortcode = shortcode;
@@ -105,16 +112,29 @@ class DarajaMpesaGateway implements MpesaGateway {
     }
 
     private Map<?, ?> post(String path, Map<String, Object> body) {
+        // Nothing has been sent yet, so failing here is a clean "try again".
+        String bearer;
+        try {
+            bearer = accessToken();
+        } catch (RestClientException e) {
+            throw unavailable();
+        }
         try {
             Map<?, ?> res = http.post().uri(path)
-                    .header("Authorization", "Bearer " + accessToken())
+                    .header("Authorization", "Bearer " + bearer)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
                     .body(Map.class);
             return res == null ? Map.of() : res;
+        } catch (RestClientResponseException e) {
+            // M-Pesa answered: a 4xx means it refused the request outright.
+            // A 5xx may come after it accepted it, so we can't tell.
+            if (e.getStatusCode().is4xxClientError()) throw unavailable();
+            throw new Uncertain();
         } catch (RestClientException e) {
-            throw unavailable();
+            // Dropped connection or timeout: it may well have gone through.
+            throw new Uncertain();
         }
     }
 

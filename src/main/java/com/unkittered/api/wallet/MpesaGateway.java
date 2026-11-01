@@ -13,6 +13,20 @@ public interface MpesaGateway {
     /** {@code completed} is true only when the mode settles instantly (dev). */
     record Request(String providerRef, boolean completed) { }
 
+    /**
+     * The request may or may not have reached M-Pesa (connection dropped, timed
+     * out, or M-Pesa had an error of its own after receiving it). The payment is
+     * neither confirmed nor refused: keep it pending and let the callback, or the
+     * clean-up job, settle it. Never treat this as a failure, or a member could
+     * be charged without Paws, or paid twice.
+     */
+    final class Uncertain extends ApiException {
+        public Uncertain() {
+            super(org.springframework.http.HttpStatus.ACCEPTED,
+                    "M-Pesa is taking a while. We'll update your wallet as soon as it confirms.");
+        }
+    }
+
     boolean enabled();
 
     Request collect(String phone, int amountKes, String reference, String description);

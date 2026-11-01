@@ -13,6 +13,7 @@ import com.unkittered.api.wallet.WalletCatalog.PawsPack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -164,19 +165,32 @@ public class WalletService {
                 && (cmd.purchaseToken() == null || cmd.purchaseToken().isBlank())) {
             throw ApiException.badRequest("Missing the store purchase to verify.");
         }
+        Mode mode = options.mode(method);
+        // Test Paws cost nothing. Once real withdrawals are on, gifting them on to
+        // a second account would turn them into real money, so they stop.
+        if (mode == Mode.SANDBOX && options.realPayoutsOn()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    method.label() + " isn't available for buying Paws right now.");
+        }
+        // Checked before anything is recorded, so a misconfigured server leaves no
+        // half-made top-ups behind.
+        if (mode == Mode.LIVE && method == PaymentMethod.MPESA) requireMpesa();
         tx = ledger.save(tx);
 
-        Mode mode = options.mode(method);
         if (mode == Mode.SANDBOX) {
             tx.providerRef("sandbox-" + UUID.randomUUID());
             applyTopUp(tx, true);
             return tx;
         }
         if (method == PaymentMethod.MPESA) {
-            requireMpesa();
             MpesaGateway.Request req;
             try {
                 req = mpesa.collect(phone, pack.priceKes(), "UNK-" + tx.getId().toString().substring(0, 8), "Paws top-up");
+            } catch (MpesaGateway.Uncertain e) {
+                // The PIN prompt may still reach their phone. Stay pending: the
+                // callback is matched by phone and amount (see completeTopUp).
+                log.warn("STK push for top-up {} may or may not have been sent; left pending", tx.getId());
+                return tx;
             } catch (ApiException e) {
                 tx.status(WalletTransaction.FAILED);
                 throw e;
@@ -190,12 +204,32 @@ public class WalletService {
         throw notConnected(method);
     }
 
-    /** M-Pesa STK callback. Idempotent. */
+    /** How long an STK prompt we lost track of can still be matched to its callback. */
+    static final Duration UNMATCHED_STK_WINDOW = Duration.ofMinutes(15);
+
+    /**
+     * M-Pesa STK callback. Idempotent. {@code amountKes} and {@code phone} come
+     * from the callback's metadata (null when it failed or M-Pesa left them out).
+     */
     @Transactional
-    public void completeTopUp(String providerRef, boolean success) {
-        ledger.findByProviderRef(providerRef).ifPresentOrElse(
-                tx -> applyTopUp(tx, success),
-                () -> log.warn("STK callback for unknown ref {}", providerRef));
+    public void completeTopUp(String providerRef, boolean success, Integer amountKes, String phone) {
+        var found = ledger.findByProviderRef(providerRef);
+        if (found.isEmpty() && success && amountKes != null && phone != null) {
+            // A top-up whose request timed out on our side but reached M-Pesa:
+            // the member paid, so find it by phone and amount.
+            found = ledger.findUnmatchedTopUp(phone, amountKes, Instant.now().minus(UNMATCHED_STK_WINDOW));
+            found.ifPresent(tx -> tx.providerRef(providerRef));
+        }
+        found.ifPresentOrElse(tx -> {
+            boolean paid = success;
+            if (paid && amountKes != null && tx.getAmountKes() != null && amountKes < tx.getAmountKes()) {
+                log.warn("STK callback {} paid KES {} for a KES {} top-up; not credited", providerRef,
+                        amountKes, tx.getAmountKes());
+                paid = false;
+            }
+            applyTopUp(tx, paid);
+        }, () -> log.warn("STK callback for unknown ref {} (success={}, KES {}, phone ending {})", providerRef,
+                success, amountKes, phone == null || phone.length() < 3 ? "?" : phone.substring(phone.length() - 3)));
     }
 
     private void applyTopUp(WalletTransaction tx, boolean success) {
@@ -243,6 +277,10 @@ public class WalletService {
         String currency = method == PaymentMethod.MPESA ? "KES" : PaymentOptions.currencyFor(country);
         int amountMinor = (int) Math.floor(payout.payout() * 100 / options.kesPer(currency));
 
+        Mode mode = options.mode(method);
+        // Before any Paws move: a server missing its M-Pesa keys must not take them.
+        if (mode == Mode.LIVE && method == PaymentMethod.MPESA) requireMpesa();
+
         // Take the Paws now; they come back if the payout fails.
         w.addEarned(-paws);
         var tx = ledger.save(new WalletTransaction(userId, WalletTransaction.WITHDRAWAL, -paws)
@@ -251,17 +289,23 @@ public class WalletService {
                 .phone(method == PaymentMethod.MPESA ? destination : null)
                 .note(payout.fee() + " Paws fee"));
 
-        Mode mode = options.mode(method);
         if (mode == Mode.SANDBOX) {
             tx.providerRef("sandbox-" + UUID.randomUUID());
             applyPayout(tx, true);
             return tx;
         }
         if (method == PaymentMethod.MPESA) {
-            requireMpesa();
+            String reference = "UNKW-" + tx.getId().toString().substring(0, 8);
             MpesaGateway.Request req;
             try {
-                req = mpesa.payout(destination, payout.payout(), "UNKW-" + tx.getId().toString().substring(0, 8));
+                req = mpesa.payout(destination, payout.payout(), reference);
+            } catch (MpesaGateway.Uncertain e) {
+                // M-Pesa may be paying this out right now. Refunding would let them
+                // withdraw the same Paws twice, so it stays pending under our own
+                // reference, which the B2C result quotes back.
+                tx.providerRef(reference);
+                log.warn("B2C payout {} may or may not have been sent; left pending", tx.getId());
+                return tx;
             } catch (ApiException e) {
                 w.addEarned(paws);
                 tx.status(WalletTransaction.FAILED);
@@ -274,6 +318,49 @@ public class WalletService {
         w.addEarned(paws);
         tx.status(WalletTransaction.FAILED);
         throw notConnected(method);
+    }
+
+    /**
+     * M-Pesa's B2C queue timed out. That doesn't mean the money didn't go out
+     * (a queued payment can still be processed), so nothing is refunded here;
+     * the result callback or {@link #settleStale()} decides.
+     */
+    public void payoutTimedOut(String providerRef) {
+        log.warn("B2C queue timeout for {}; left pending until M-Pesa confirms", providerRef);
+    }
+
+    /** Top-ups with no answer after this long are given up on (nothing was credited). */
+    static final Duration TOP_UP_GIVE_UP = Duration.ofHours(2);
+    /** Withdrawals with no answer after this long need a person to check them. */
+    static final Duration PAYOUT_ALERT = Duration.ofHours(24);
+
+    /**
+     * Hourly: closes top-ups M-Pesa never answered (no Paws were given, so
+     * failing them is safe) and flags withdrawals still waiting. Withdrawals
+     * are never refunded automatically: if the money went out, a refund would
+     * pay the member twice.
+     */
+    @Scheduled(cron = "${unkittered.wallet.settle-cron:0 20 * * * *}")
+    @Transactional
+    public void settleStale() {
+        try {
+            Instant now = Instant.now();
+            for (WalletTransaction tx : ledger.findByKindAndStatusAndCreatedAtBefore(
+                    WalletTransaction.TOP_UP, WalletTransaction.PENDING, now.minus(TOP_UP_GIVE_UP))) {
+                log.warn("Top-up {} ({}, ref {}) had no answer from the provider; marked failed. "
+                        + "If the member says they paid, check the M-Pesa statement.", tx.getId(), tx.getMethod(),
+                        tx.getProviderRef());
+                applyTopUp(tx, false);
+            }
+            List<WalletTransaction> waiting = ledger.findByKindAndStatusAndCreatedAtBefore(
+                    WalletTransaction.WITHDRAWAL, WalletTransaction.PENDING, now.minus(PAYOUT_ALERT));
+            if (!waiting.isEmpty()) {
+                log.warn("{} withdrawal(s) still pending after {}h, check them against M-Pesa: {}", waiting.size(),
+                        PAYOUT_ALERT.toHours(), waiting.stream().map(t -> t.getId() + " (ref " + t.getProviderRef() + ")").toList());
+            }
+        } catch (Exception e) {
+            log.warn("Settling pending payments failed: {}", e.getMessage());
+        }
     }
 
     /** M-Pesa B2C result. Idempotent. */

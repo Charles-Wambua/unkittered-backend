@@ -95,6 +95,14 @@ public class PaymentOptions {
                 .toList();
     }
 
+    /** Is any provider paying out real money? (Then sandbox top-ups must stop.) */
+    public boolean realPayoutsOn() {
+        return Arrays.stream(PaymentMethod.values()).anyMatch(m -> {
+            PaymentsProperties.Provider p = settings(m);
+            return p != null && p.isPayouts() && mode(m) == Mode.LIVE;
+        });
+    }
+
     public void requireTopUp(PaymentMethod m, String country, String platform) {
         if (!topUpMethods(country, platform).contains(m)) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
