@@ -80,6 +80,19 @@ public class RealtimeGateway extends TextWebSocketHandler {
         }
     }
 
+    /** Closes every live connection a user has (e.g. their account was just suspended). */
+    public void disconnect(UUID userId) {
+        Set<WebSocketSession> set = sessions.remove(userId);
+        if (set == null) return;
+        for (WebSocketSession s : set) {
+            try {
+                s.close(CloseStatus.POLICY_VIOLATION);
+            } catch (IOException e) {
+                log.debug("Closing WS session for {} failed: {}", userId, e.getMessage());
+            }
+        }
+    }
+
     /** Number of distinct users with at least one live connection right now. */
     public int onlineCount() {
         return sessions.size();

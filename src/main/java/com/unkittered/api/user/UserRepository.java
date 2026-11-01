@@ -22,4 +22,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     long countByCreatedAtAfter(Instant t);
     long countByCreatedAtBetween(Instant from, Instant to);
     List<User> findTop20BySubscriptionTierNotOrderByCreatedAtAsc(String tier);
+
+    /** Members whose paid period ended before {@code t}. */
+    List<User> findBySubscriptionExpiresAtBefore(Instant t);
 }

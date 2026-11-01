@@ -31,6 +31,14 @@ public class User {
     @Column(name = "subscription_tier", nullable = false)
     private String subscriptionTier = "free";
 
+    /** When a paid membership lapses; null = it doesn't on its own (admin-granted). */
+    @Column(name = "subscription_expires_at")
+    private Instant subscriptionExpiresAt;
+
+    /** Sign-ins issued before this no longer work (bumped by a password reset). */
+    @Column(name = "tokens_valid_after")
+    private Instant tokensValidAfter;
+
     @Column(name = "is_admin", nullable = false)
     private boolean admin = false;
 
@@ -66,4 +74,8 @@ public class User {
     public void setSuspended(boolean suspended) { this.suspended = suspended; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public Instant getSubscriptionExpiresAt() { return subscriptionExpiresAt; }
+    public void setSubscriptionExpiresAt(Instant t) { this.subscriptionExpiresAt = t; }
+    public Instant getTokensValidAfter() { return tokensValidAfter; }
+    public void setTokensValidAfter(Instant t) { this.tokensValidAfter = t; }
 }

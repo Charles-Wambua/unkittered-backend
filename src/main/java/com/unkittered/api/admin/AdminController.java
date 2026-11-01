@@ -35,6 +35,16 @@ public class AdminController {
     private final StorageService storage;
     private final ReminderService reminders;
 
+    /**
+     * Every endpoint here is admin-only. Checked once, before any handler runs,
+     * so a new endpoint (or one that notifies people before calling a service)
+     * can't forget it. The services check again.
+     */
+    @ModelAttribute
+    void adminOnly() {
+        admin.requireAdmin();
+    }
+
     public AdminController(AdminService admin, AdminInsightsService insights,
                            SterilisationService sterilisation, BroadcastService broadcasts,
                            MemberNotifier notify, StorageService storage, ReminderService reminders) {

@@ -94,6 +94,16 @@ public class AuthService {
         User user = (email != null && identity.emailVerified())
                 ? users.findByEmailIgnoreCase(email).orElse(null)
                 : null;
+        if (user != null && user.getPasswordHash() != null) {
+            // Linking Google/Apple to an email+password account. Sign-up never
+            // confirms the email, so someone else may have registered it first to
+            // wait for the real owner. The provider has just proved who owns the
+            // address: the password goes and every older session ends. The owner
+            // can set a password again with "Forgot password".
+            user.setPasswordHash(null);
+            user.setTokensValidAfter(java.time.Instant.now());
+            user = users.save(user);
+        }
         if (user == null) {
             user = new User();
             // Only claim the email if it's verified and nobody else has it.

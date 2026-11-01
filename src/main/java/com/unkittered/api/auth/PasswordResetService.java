@@ -84,6 +84,9 @@ public class PasswordResetService {
         }
 
         user.setPasswordHash(encoder.encode(newPassword));
+        // Every session from before the reset ends: if someone else had their way
+        // in, this is how the owner throws them out.
+        user.setTokensValidAfter(clock.instant());
         users.save(user);
         codes.delete(pending);
         return user;

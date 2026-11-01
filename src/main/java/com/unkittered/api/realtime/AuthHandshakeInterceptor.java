@@ -1,6 +1,7 @@
 package com.unkittered.api.realtime;
 
 import com.unkittered.api.security.JwtService;
+import com.unkittered.api.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -22,8 +23,10 @@ public class AuthHandshakeInterceptor implements HandshakeInterceptor {
     static final String USER_ID = "userId";
 
     private final JwtService jwt;
+    private final UserRepository users;
 
-    public AuthHandshakeInterceptor(JwtService jwt) {
+    public AuthHandshakeInterceptor(JwtService jwt, UserRepository users) {
+        this.users = users;
         this.jwt = jwt;
     }
 
@@ -36,7 +39,13 @@ public class AuthHandshakeInterceptor implements HandshakeInterceptor {
             return false;
         }
         try {
-            UUID userId = jwt.parseUserId(token);
+            JwtService.Session session = jwt.parse(token);
+            UUID userId = session.userId();
+            // Same rules as every other request: not suspended, not signed out by a reset.
+            if (!JwtService.stillValid(users.findById(userId).orElse(null), session.issuedAt())) {
+                response.setStatusCode(HttpStatus.UNAUTHORIZED);
+                return false;
+            }
             attributes.put(USER_ID, userId);
             return true;
         } catch (Exception e) {

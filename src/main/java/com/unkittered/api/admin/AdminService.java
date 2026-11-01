@@ -168,6 +168,8 @@ public class AdminService {
                 .orElseThrow(() -> ApiException.notFound("User not found"));
         u.setSuspended(suspend);
         users.save(u);
+        // An app that was already open loses its live connection straight away.
+        if (suspend) gateway.disconnect(userId);
     }
 
     @Transactional

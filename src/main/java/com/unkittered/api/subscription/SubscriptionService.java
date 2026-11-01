@@ -8,6 +8,7 @@ import com.unkittered.api.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,20 +54,30 @@ public class SubscriptionService {
             throw new ApiException(HttpStatus.FORBIDDEN,
                     "Boosts are a Plus & Gold perk. Upgrade to be the top profile in your area.");
         }
+        // Look the profile up before spending anything, so a failure costs no Boost.
+        Profile p = profiles.findById(userId)
+                .orElseThrow(() -> ApiException.notFound("Profile not found"));
         String key = Allowances.monthlyBoostsKey(userId);
         Long count = redis.opsForValue().increment(key);
         if (count != null && count == 1L) {
             redis.expire(key, Duration.ofDays(32));
         }
         if (count != null && count > limit) {
+            redis.opsForValue().decrement(key);   // a refused Boost isn't a used one
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
                     "You've used all your Boosts this month.");
         }
-        Profile p = profiles.findById(userId)
-                .orElseThrow(() -> ApiException.notFound("Profile not found"));
-        Instant until = Instant.now().plus(BOOST_DURATION);
+        // Boosting while boosted adds 30 minutes rather than wasting the time left.
+        Instant now = Instant.now();
+        Instant from = p.getBoostedUntil() != null && p.getBoostedUntil().isAfter(now) ? p.getBoostedUntil() : now;
+        Instant until = from.plus(BOOST_DURATION);
         p.setBoostedUntil(until);
-        profiles.save(p);
+        try {
+            profiles.save(p);
+        } catch (RuntimeException e) {
+            redis.opsForValue().decrement(key);
+            throw e;
+        }
         int remaining = count == null ? limit - 1 : Math.max(0, limit - count.intValue());
         return new BoostResult(until, remaining);
     }
@@ -114,6 +125,10 @@ public class SubscriptionService {
         }
         User user = requireUser(userId);
         user.setSubscriptionTier(tier);
+        // Runs out unless renewed; buying again while active adds to what's left.
+        Instant from = user.getSubscriptionExpiresAt() != null && user.getSubscriptionExpiresAt().isAfter(Instant.now())
+                ? user.getSubscriptionExpiresAt() : Instant.now();
+        user.setSubscriptionExpiresAt(from.plus(PRODUCTS.get(productId.trim().toLowerCase()).length()));
         users.save(user);
         return tier;
     }
@@ -122,6 +137,7 @@ public class SubscriptionService {
     public void cancel(UUID userId) {
         User user = requireUser(userId);
         user.setSubscriptionTier("free");
+        user.setSubscriptionExpiresAt(null);
         users.save(user);
         // Incognito is a Gold perk — drop it when the membership lapses.
         profiles.findById(userId).ifPresent(p -> {
@@ -133,11 +149,33 @@ public class SubscriptionService {
     }
 
     /** Maps an IAP product id to a tier id. Mirrors the Flutter SubscriptionPlan catalog. */
-    private String tierFromProductId(String productId) {
-        String id = productId.toLowerCase();
-        if (id.contains("gold")) return "gold";
-        if (id.contains("plus")) return "plus";
-        return "free";
+    static String tierFromProductId(String productId) {
+        Product p = PRODUCTS.get(productId == null ? "" : productId.trim().toLowerCase());
+        return p == null ? "free" : p.tier();
+    }
+
+    /** A store product: the tier it gives and for how long. */
+    record Product(String tier, Duration length) { }
+
+    /** Exactly the ids the app sells ({@code unkittered_<tier>_<period>}); nothing else counts. */
+    static final java.util.Map<String, Product> PRODUCTS = java.util.Map.of(
+            "unkittered_plus_monthly", new Product("plus", Duration.ofDays(31)),
+            "unkittered_plus_annual", new Product("plus", Duration.ofDays(366)),
+            "unkittered_gold_monthly", new Product("gold", Duration.ofDays(31)),
+            "unkittered_gold_annual", new Product("gold", Duration.ofDays(366)));
+
+    /**
+     * Hourly: members whose paid period has ended go back to free (and lose the
+     * Gold-only incognito). Renewals push the end date forward when receipts are
+     * verified, so only memberships that really lapsed end here.
+     */
+    @Scheduled(cron = "${unkittered.billing.lapse-cron:0 40 * * * *}")
+    @Transactional
+    public void lapseExpired() {
+        for (User u : users.findBySubscriptionExpiresAtBefore(Instant.now())) {
+            if ("free".equalsIgnoreCase(u.getSubscriptionTier())) continue;
+            cancel(u.getId());
+        }
     }
 
     private User requireUser(UUID userId) {

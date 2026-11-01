@@ -11,6 +11,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.unkittered.api.profile.PresenceService;
+import com.unkittered.api.user.User;
 import com.unkittered.api.user.UserRepository;
 
 import java.io.IOException;
@@ -20,6 +21,9 @@ import java.util.UUID;
 /** Reads a {@code Bearer} token, validates it, and populates the security context. */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+    /** Response header carrying a renewed token for the app to keep. */
+    public static final String SESSION_HEADER = "X-Session-Token";
 
     private final JwtService jwtService;
     private final PresenceService presence;
@@ -43,18 +47,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 && SecurityContextHolder.getContext().getAuthentication() == null) {
             String token = header.substring(7);
             try {
-                UUID userId = jwtService.parseUserId(token);
+                JwtService.Session session = jwtService.parse(token);
+                UUID userId = session.userId();
                 // Reject tokens for users that no longer exist (e.g. after a DB
-                // reset) — otherwise a "valid" token for a ghost user slips
-                // through and blows up later on FK constraints. Leaving the
-                // context unauthenticated makes protected routes return 401, and
-                // the client then routes to login.
-                if (users.existsByIdAndSuspendedFalse(userId)) {
+                // reset), are suspended, or were issued before a password reset.
+                // Leaving the context unauthenticated makes protected routes
+                // return 401, and the client then routes to login.
+                User user = users.findById(userId).orElse(null);
+                if (JwtService.stillValid(user, session.issuedAt())) {
                     var auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                     // Refresh activity for presence (throttled, best-effort).
                     presence.touch(userId);
+                    // A day-old session gets a new token, so people who use the app
+                    // are never signed out mid-use (the app stores it).
+                    if (JwtService.needsRenewal(session.issuedAt())) {
+                        response.setHeader(SESSION_HEADER, jwtService.issue(userId, user.getEmail()));
+                    }
                 }
             } catch (Exception ignored) {
                 // Invalid/expired token -> remains unauthenticated; protected routes 401.
