@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.user.UserRepository;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -72,16 +73,18 @@ public class ChatService {
 
     @Transactional(readOnly = true)
     public List<MatchDto> matchesFor(UUID viewerId) {
+        Profile me = profiles.findById(viewerId).orElse(null);
         return visibleMatches(viewerId).stream()
                 .map(m -> new MatchDto(
                         m.getId().toString(),
-                        otherProfile(m, viewerId),
+                        otherProfile(m, viewerId, me),
                         m.getCreatedAt()))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ConversationDto> conversationsFor(UUID viewerId) {
+        Profile me = profiles.findById(viewerId).orElse(null);
         return visibleMatches(viewerId).stream()
                 .map(m -> {
                     // "Delete chat" hides everything up to when it was cleared.
@@ -95,7 +98,7 @@ public class ChatService {
                     var plan = latestPlan(m.getId());
                     return new ConversationDto(
                             m.getId().toString(),
-                            otherProfile(m, viewerId),
+                            otherProfile(m, viewerId, me),
                             last.map(msg -> previewFor(msg, viewerId)).orElse(null),
                             last.map(Message::getCreatedAt).orElse(m.getCreatedAt()),
                             unread,
@@ -441,10 +444,11 @@ public class ChatService {
         return m.getUserLow().equals(viewerId) ? m.getUserHigh() : m.getUserLow();
     }
 
-    private ProfileDto otherProfile(Match m, UUID viewerId) {
+    /** The other person in a match, with a real (banded) distance or none. */
+    private ProfileDto otherProfile(Match m, UUID viewerId, Profile me) {
         UUID otherId = otherUserId(m, viewerId);
         Profile p = profiles.findById(otherId)
                 .orElseThrow(() -> ApiException.notFound("Profile not found"));
-        return mapper.toDto(p, null, 10.0);
+        return mapper.toDto(p, null, DiscoverService.distanceKm(me, p));
     }
 }

@@ -84,7 +84,7 @@ public class SafetyService {
         return blocks.findBlockedIds(blockerId).stream()
                 .map(profiles::findById)
                 .flatMap(java.util.Optional::stream)
-                .map(p -> mapper.toDto(p, null, 0.0))
+                .map(p -> mapper.toDto(p, null, DiscoverService.UNKNOWN_DISTANCE))
                 .toList();
     }
 

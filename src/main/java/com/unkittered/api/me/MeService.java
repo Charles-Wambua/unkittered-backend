@@ -58,7 +58,7 @@ public class MeService {
     @Transactional(readOnly = true)
     public ProfileDto profile(UUID userId) {
         // Viewing your own profile — never redact your own presence.
-        return mapper.toDto(requireProfile(userId), null, 0.0, false);
+        return mapper.toDto(requireProfile(userId), null, DiscoverService.UNKNOWN_DISTANCE, false);
     }
 
     /** Stores the device location rounded to ~100 m; exact positions are never kept. */
@@ -130,7 +130,7 @@ public class MeService {
 
         // The profile is now richer — invalidate cached decks so others can match.
         discoverService.evict(userId);
-        return mapper.toDto(p, null, 0.0, false);
+        return mapper.toDto(p, null, DiscoverService.UNKNOWN_DISTANCE, false);
     }
 
     /**

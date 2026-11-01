@@ -206,12 +206,19 @@ public class DiscoverService {
         return Math.ceil(d / 10) * 10;
     }
 
-    /** Haversine when both have coordinates; otherwise a sensible default. */
-    private double distanceKm(Profile viewer, Profile candidate) {
+    /** Sent instead of a distance when it isn't known; the app then shows none. */
+    public static final double UNKNOWN_DISTANCE = -1;
+
+    /**
+     * Banded distance between two people, or {@link #UNKNOWN_DISTANCE} when either
+     * has no location. Never a made-up figure: "10 km away" for someone whose
+     * location we don't know is worse than saying nothing.
+     */
+    public static double distanceKm(Profile viewer, Profile candidate) {
         if (viewer == null
                 || viewer.getLatitude() == null || viewer.getLongitude() == null
                 || candidate.getLatitude() == null || candidate.getLongitude() == null) {
-            return 10.0;
+            return UNKNOWN_DISTANCE;
         }
         double r = 6371.0;
         double dLat = Math.toRadians(candidate.getLatitude() - viewer.getLatitude());

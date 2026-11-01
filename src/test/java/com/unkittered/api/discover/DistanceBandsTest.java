@@ -16,4 +16,11 @@ class DistanceBandsTest {
         assertThat(DiscoverService.coarseKm(12.1)).isEqualTo(15.0);
         assertThat(DiscoverService.coarseKm(51)).isEqualTo(60.0);
     }
+
+    @Test
+    void anUnknownLocationGivesNoDistanceRatherThanAMadeUpOne() {
+        assertThat(DiscoverService.distanceKm(new com.unkittered.api.profile.Profile(), new com.unkittered.api.profile.Profile()))
+                .isEqualTo(DiscoverService.UNKNOWN_DISTANCE);
+        assertThat(DiscoverService.distanceKm(null, new com.unkittered.api.profile.Profile())).isNegative();
+    }
 }

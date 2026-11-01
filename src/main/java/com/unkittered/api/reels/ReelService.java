@@ -1,5 +1,6 @@
 package com.unkittered.api.reels;
 
+import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
@@ -16,7 +17,6 @@ import java.util.UUID;
 public class ReelService {
 
     /** Default distance shown on reel cards when coordinates aren't available. */
-    private static final double DEFAULT_DISTANCE_KM = 10.0;
 
     private final ReelRepository reels;
     private final ProfileRepository profiles;
@@ -35,13 +35,14 @@ public class ReelService {
     @Transactional(readOnly = true)
     public List<ReelDto> feedFor(UUID viewerId) {
         List<ReelDto> feed = new ArrayList<>();
+        Profile viewer = profiles.findById(viewerId).orElse(null);
 
         // The viewer's own reel leads the feed (so they can preview & manage it).
         reels.findFirstByUserIdOrderByCreatedAtDesc(viewerId).ifPresent(mine -> {
             Profile me = profiles.findById(viewerId).orElse(null);
             if (me != null) {
                 feed.add(new ReelDto(
-                        mapper.toDto(me, null, 0.0, false),
+                        mapper.toDto(me, null, DiscoverService.UNKNOWN_DISTANCE, false),
                         mine.getVideoUrl(),
                         mine.getPosterUrl(),
                         true));
@@ -52,7 +53,7 @@ public class ReelService {
             Profile p = profiles.findById(reel.getUserId()).orElse(null);
             if (p == null) continue; // profile gone — skip the orphaned reel
             feed.add(new ReelDto(
-                    mapper.toDto(p, null, DEFAULT_DISTANCE_KM),
+                    mapper.toDto(p, null, DiscoverService.distanceKm(viewer, p)),
                     reel.getVideoUrl(),
                     reel.getPosterUrl(),
                     false));

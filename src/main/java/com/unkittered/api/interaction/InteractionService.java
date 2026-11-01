@@ -9,6 +9,7 @@ import com.unkittered.api.subscription.Allowances;
 import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.messaging.MatchCreatedEvent;
 import com.unkittered.api.messaging.MatchEventPublisher;
+import com.unkittered.api.profile.Profile;
 import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
@@ -177,11 +178,12 @@ public class InteractionService {
      * just to be blurred on the phone.
      */
     public List<ProfileDto> whoLikedMe(UUID viewerId) {
+        Profile me = profiles.findById(viewerId).orElse(null);
         boolean entitled = users.findById(viewerId)
                 .map(u -> Allowances.seesWhoLiked(u.getSubscriptionTier()))
                 .orElse(false);
         return profiles.findWhoLiked(viewerId).stream()
-                .map(p -> entitled ? mapper.toDto(p, null, 10.0) : mapper.teaser(p))
+                .map(p -> entitled ? mapper.toDto(p, null, DiscoverService.distanceKm(me, p)) : mapper.teaser(p))
                 .toList();
     }
 
