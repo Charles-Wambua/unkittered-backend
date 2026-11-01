@@ -79,15 +79,29 @@ public class AdminInsightsService {
     public List<Map<String, Object>> members(String query, String filter) {
         admin.requireAdmin();
         String q = query == null ? "" : query.trim().toLowerCase();
-        String where = switch (filter == null ? "" : filter) {
+        return jdbc.queryForList(membersSql(filter),
+                q, "%" + q + "%", "%" + q + "%", "%" + q + "%", q, MEMBER_PAGE);
+    }
+
+    /** The extra condition for each filter button on the Members page. */
+    static String memberFilter(String filter) {
+        return switch (filter == null ? "" : filter) {
             case "suspended" -> "AND u.suspended";
-            case "verified" -> "AND p.is_verified";
+            case "verified" -> "AND COALESCE(p.is_verified, false)";
             case "paying" -> "AND u.subscription_tier <> 'free'";
             case "reported" -> "AND EXISTS (SELECT 1 FROM reports x WHERE x.reported_id = u.id)";
             case "incomplete" -> "AND NOT u.onboarding_complete";
             default -> "";
         };
-        return jdbc.queryForList("""
+    }
+
+    /**
+     * The member search. The filter sits on its own line: glued straight onto
+     * "ORDER BY" it made "u.suspendedORDER", which broke the Suspended, Verified
+     * and Not onboarded buttons (error 500).
+     */
+    static String membersSql(String filter) {
+        return """
                 SELECT u.id::text AS id, COALESCE(NULLIF(p.name, ''), u.display_name) AS name,
                        u.email, p.age, p.location, p.image_url AS "imageUrl",
                        u.subscription_tier AS tier, COALESCE(p.is_verified, false) AS verified,
@@ -98,10 +112,10 @@ public class AdminInsightsService {
                 LEFT JOIN profiles p ON p.user_id = u.id
                 WHERE (? = '' OR lower(u.email) LIKE ? OR lower(p.name) LIKE ?
                        OR lower(u.display_name) LIKE ? OR u.id::text = ?)
-                """ + where + """
+                """ + memberFilter(filter) + "\n" + """
                 ORDER BY u.created_at DESC
                 LIMIT ?
-                """, q, "%" + q + "%", "%" + q + "%", "%" + q + "%", q, MEMBER_PAGE);
+                """;
     }
 
     /** Everything an admin needs to judge one member. */
