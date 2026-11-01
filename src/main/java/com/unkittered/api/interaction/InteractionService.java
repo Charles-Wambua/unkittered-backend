@@ -8,6 +8,7 @@ import com.unkittered.api.messaging.MatchEventPublisher;
 import com.unkittered.api.profile.ProfileDto;
 import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
+import com.unkittered.api.push.PushService;
 import com.unkittered.api.realtime.RealtimeGateway;
 import com.unkittered.api.user.User;
 import com.unkittered.api.user.UserRepository;
@@ -36,11 +37,16 @@ public class InteractionService {
     private final DiscoverService discoverService;
     private final RedisTemplate<String, Object> redis;
     private final RealtimeGateway realtime;
+    private final PushService push;
+
+    /** At most one "someone wagged" push per member in this window; the rest just update the count. */
+    static final Duration WAG_PUSH_GAP = Duration.ofHours(1);
 
     public InteractionService(LikeRepository likes, PassRepository passes, MatchRepository matches,
                               UserRepository users, ProfileRepository profiles, ProfileMapper mapper,
                               MatchEventPublisher matchPublisher, DiscoverService discoverService,
-                              RedisTemplate<String, Object> redis, RealtimeGateway realtime) {
+                              RedisTemplate<String, Object> redis, RealtimeGateway realtime, PushService push) {
+        this.push = push;
         this.likes = likes;
         this.passes = passes;
         this.matches = matches;
@@ -81,10 +87,27 @@ public class InteractionService {
             // A bare ping so the "N wagged at you" count updates live. It names
             // nobody: who it was stays behind the who-wagged entitlement.
             realtime.sendToUser(likeeId, Map.of("type", "wag"));
+            notifyWag(likeeId);
         }
 
         discoverService.evict(likerId);
         return new LikeOutcome(isMatch, false);
+    }
+
+    /**
+     * "Someone wagged at you", for when the app is closed (the "Likes" setting turns
+     * it off). Like the live ping it names nobody, and it's sent at most once per
+     * {@link #WAG_PUSH_GAP} so a popular profile isn't buzzed for every wag.
+     */
+    private void notifyWag(UUID likeeId) {
+        try {
+            Boolean first = redis.opsForValue().setIfAbsent("wagpush:" + likeeId, 1, WAG_PUSH_GAP);
+            if (!Boolean.TRUE.equals(first)) return;
+        } catch (Exception e) {
+            return;   // no Redis, no push: never fail the wag over a notification
+        }
+        push.sendToUser(likeeId, "Someone wagged at you 🐾", "Wag back and if it's mutual, you can start chatting.",
+                Map.of("type", "like"));
     }
 
     @Transactional

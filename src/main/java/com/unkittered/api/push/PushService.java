@@ -12,11 +12,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import com.unkittered.api.user.UserRepository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -34,15 +37,20 @@ public class PushService {
     /** How long FCM keeps a push for a phone that's offline (its maximum, 4 weeks). */
     static final long TTL_MILLIS = 28L * 24 * 60 * 60 * 1000;
 
+    /** FCM data {@code type} for notices about the member's own account (see MemberNotifier). */
+    static final String ACCOUNT_TYPE = "account";
+
     private final ObjectProvider<FirebaseMessaging> messaging;
     private final DeviceTokenRepository tokens;
     private final NotificationPrefsRepository prefs;
+    private final UserRepository users;
 
     public PushService(ObjectProvider<FirebaseMessaging> messaging, DeviceTokenRepository tokens,
-                       NotificationPrefsRepository prefs) {
+                       NotificationPrefsRepository prefs, UserRepository users) {
         this.messaging = messaging;
         this.tokens = tokens;
         this.prefs = prefs;
+        this.users = users;
     }
 
     public boolean isEnabled() {
@@ -64,6 +72,12 @@ public class PushService {
         // Respect each recipient's per-type preference (missing row = all on).
         String type = data == null ? null : data.get("type");
         List<UUID> recipients = filterByPrefs(userIds, type);
+        // Suspended members can't sign in, so other people's activity (with message
+        // text) shouldn't reach their phone. Only notices about their account do.
+        if (!ACCOUNT_TYPE.equals(type) && !recipients.isEmpty()) {
+            Set<UUID> suspended = new HashSet<>(users.findSuspendedIds(recipients));
+            if (!suspended.isEmpty()) recipients = recipients.stream().filter(id -> !suspended.contains(id)).toList();
+        }
         if (recipients.isEmpty()) return;
 
         List<DeviceToken> rows = tokens.findByUserIdIn(recipients);
@@ -73,6 +87,8 @@ public class PushService {
         Map<String, String> payload = new HashMap<>(data == null ? Map.of() : data);
         payload.putIfAbsent("title", title);
         payload.putIfAbsent("body", body);
+        String tag = tagFor(payload);
+        if (tag != null) payload.put("tag", tag);
 
         // FCM multicast caps at 500 tokens per call.
         for (int i = 0; i < targets.size(); i += 500) {
@@ -86,9 +102,14 @@ public class PushService {
             AndroidConfig.Builder android = AndroidConfig.builder()
                     .setPriority(AndroidConfig.Priority.HIGH)
                     .setTtl(TTL_MILLIS);
+            // One notification per conversation: a new message replaces the last one
+            // instead of stacking, and the app clears it when the chat is opened.
             String channel = payload.get("channel");
-            if (channel != null) {
-                android.setNotification(AndroidNotification.builder().setChannelId(channel).build());
+            if (channel != null || tag != null) {
+                AndroidNotification.Builder n = AndroidNotification.builder();
+                if (channel != null) n.setChannelId(channel);
+                if (tag != null) n.setTag(tag);
+                android.setNotification(n.build());
             }
             builder.setAndroidConfig(android.build());
             MulticastMessage message = builder
@@ -102,6 +123,22 @@ public class PushService {
                 log.warn("FCM multicast failed for {} tokens: {}", chunk.size(), e.getMessage());
             }
         }
+    }
+
+    /**
+     * The Android notification tag that groups pushes about the same thing, so the
+     * newest replaces the last: {@code chat:<matchId>}, {@code pack:<meetupId>},
+     * {@code wags}. The app uses the same tags to clear them. Null = no grouping.
+     */
+    static String tagFor(Map<String, String> data) {
+        String type = data.get("type");
+        if (type == null) return null;
+        return switch (type) {
+            case "message" -> data.get("matchId") == null ? null : "chat:" + data.get("matchId");
+            case "pack_message" -> data.get("meetupId") == null ? null : "pack:" + data.get("meetupId");
+            case "like" -> "wags";
+            default -> null;
+        };
     }
 
     /** Keep only users who allow this notification type (no row → allowed). */

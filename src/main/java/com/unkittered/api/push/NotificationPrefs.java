@@ -28,7 +28,7 @@ public class NotificationPrefs {
     @Column(nullable = false)
     private boolean likes = true;
 
-    /** Reminders & tips: unanswered chats, new people nearby, finishing the profile. */
+    /** Reminders, tips & news: nudges (unanswered chats, new people, the profile) and announcements. */
     @Column(nullable = false)
     private boolean tips = true;
 
@@ -46,7 +46,7 @@ public class NotificationPrefs {
             case "message", "pack_message" -> messages;
             case "meetup", "meetup_cancelled" -> reminders;
             case "like" -> likes;
-            case "reminder" -> tips;
+            case "reminder", "announcement" -> tips;
             default -> true;
         };
     }

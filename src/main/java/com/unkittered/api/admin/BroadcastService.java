@@ -22,9 +22,10 @@ import java.util.UUID;
 /**
  * Announcements from the admin dashboard ("Merry Christmas", a new feature,
  * planned downtime) to a chosen audience, by push and/or email. Suspended
- * accounts never receive them. A test send goes only to the admin sending it.
+ * accounts, and members who turned off "Reminders, tips &amp; news", never receive
+ * them. A test send goes only to the admin sending it.
  *
- * <p>An announcement can be scheduled for a local date and time: the hourly job
+ * <p>An announcement can be scheduled for a local date and time: the 10-minute job
  * delivers it to each member once that time has arrived where they are (from
  * the phone's UTC offset; Kenya time if unknown).
  */
@@ -51,6 +52,10 @@ public class BroadcastService {
             "inactive", "p.last_active_at < now() - interval '14 days'",
             "onboarding", "NOT u.onboarding_complete");
 
+    /** SQL after {@code users u LEFT JOIN profiles p}: not suspended and allows announcements. */
+    private static final String REACHABLE = "LEFT JOIN notification_prefs np ON np.user_id = u.id "
+            + "WHERE NOT u.suspended AND COALESCE(np.tips, true)";
+
     /** {@code sendAtLocal}: optional ISO local date-time, e.g. {@code 2026-12-25T09:00}. */
     public record Request(String title, String body, String audience, boolean push, boolean email, boolean test,
                           String sendAtLocal) { }
@@ -74,7 +79,7 @@ public class BroadcastService {
 
     public long audienceSize(String audience) {
         admin.requireAdmin();
-        return jdbc.queryForObject("SELECT count(*) FROM users u LEFT JOIN profiles p ON p.user_id = u.id WHERE NOT u.suspended AND ("
+        return jdbc.queryForObject("SELECT count(*) FROM users u LEFT JOIN profiles p ON p.user_id = u.id " + REACHABLE + " AND ("
                 + condition(audience) + ")", Long.class);
     }
 
@@ -120,7 +125,7 @@ public class BroadcastService {
                 VALUES (?, ?, ?, ?, ?, ?, 0, 'sent', now()) RETURNING id
                 """, UUID.class, CurrentUser.id(), title, body, r.audience(), r.push(), r.email());
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT u.id, u.email FROM users u LEFT JOIN profiles p ON p.user_id = u.id "
-                + "WHERE NOT u.suspended AND (" + condition(r.audience()) + ")");
+                + REACHABLE + " AND (" + condition(r.audience()) + ")");
         deliver(rows, title, body, r.push(), r.email(), id);
         log.info("Broadcast \"{}\" to {} member(s) (audience={}, push={}, email={})",
                 title, rows.size(), r.audience(), r.push(), r.email());
@@ -160,11 +165,11 @@ public class BroadcastService {
                 String audience = (String) b.get("audience");
                 List<Map<String, Object>> rows = jdbc.queryForList("""
                         SELECT u.id, u.email FROM users u LEFT JOIN profiles p ON p.user_id = u.id
-                        WHERE NOT u.suspended AND (%s)
+                        %s AND (%s)
                           AND (now() AT TIME ZONE 'UTC') + make_interval(mins => COALESCE(u.utc_offset_minutes, 180)) >= ?
                           AND NOT EXISTS (SELECT 1 FROM notification_log l WHERE l.user_id = u.id AND l.kind = 'broadcast'
                                           AND l.ref = ?)
-                        """.formatted(condition(audience)), b.get("send_at_local"), id.toString());
+                        """.formatted(REACHABLE, condition(audience)), b.get("send_at_local"), id.toString());
                 if (!rows.isEmpty()) {
                     deliver(rows, (String) b.get("title"), (String) b.get("body"),
                             (Boolean) b.get("via_push"), (Boolean) b.get("via_email"), id);

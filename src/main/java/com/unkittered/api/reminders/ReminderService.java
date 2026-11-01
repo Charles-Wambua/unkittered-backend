@@ -27,7 +27,7 @@ import java.util.UUID;
  * waiting); nothing is sent when there's nothing true to say.
  *
  * <p>Guard rails: only between 09:00 and 21:00 in the member's own time zone;
- * only to members who allow "Reminders &amp; tips"; at most 2 chat reminders a
+ * only to members who allow "Reminders, tips &amp; news"; at most 2 chat reminders a
  * day; at most 1 other reminder a day and 3 a week; each reminder once per
  * occasion (see {@code notification_log}). Inactive members stop getting pushes
  * after 30 days and get one email a month instead.
@@ -422,7 +422,7 @@ public class ReminderService {
             if (wags == 0 && newcomers == 0) {
                 lines.add("New members join every week, and packs are meeting for walks, dinners and trips.");
             }
-            lines.add("If you'd rather not hear from us, turn off \"Reminders & tips\" in Settings, or pause your profile.");
+            lines.add("If you'd rather not hear from us, turn off \"Reminders, tips & news\" in Settings, or pause your profile.");
             jdbc.update("INSERT INTO notification_log (user_id, kind, channel) VALUES (?, 'inactive_email', 'email')", r.get("id"));
             if (mail.send((String) r.get("email"), "We've missed you at Unkittered", "We've missed you 🐾", lines,
                     new MailService.Action("Open Unkittered", mail.siteUrl()))) {
