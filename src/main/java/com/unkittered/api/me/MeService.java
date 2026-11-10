@@ -1,6 +1,7 @@
 package com.unkittered.api.me;
 
 import com.unkittered.api.auth.AuthDtos.UserDto;
+import com.unkittered.api.chat.OfficialChatService;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.me.MeDtos.DeleteAccountRequest;
@@ -36,11 +37,13 @@ public class MeService {
     private final PetService pets;
     private final PasswordEncoder passwords;
     private final MediaUrls media;
+    private final OfficialChatService officialChat;
     private static final Logger log = LoggerFactory.getLogger(MeService.class);
 
     public MeService(UserRepository users, ProfileRepository profiles,
                      ProfileMapper mapper, DiscoverService discoverService, PetService pets,
-                     PasswordEncoder passwords, MediaUrls media) {
+                     PasswordEncoder passwords, MediaUrls media, OfficialChatService officialChat) {
+        this.officialChat = officialChat;
         this.media = media;
         this.passwords = passwords;
         this.pets = pets;
@@ -157,8 +160,11 @@ public class MeService {
     @Transactional
     public UserDto completeOnboarding(UUID userId) {
         User user = requireUser(userId);
+        boolean firstTime = !user.isOnboardingComplete();
         user.setOnboardingComplete(true);
         users.save(user);
+        // Their always-on chat with the Unkittered team, opened with a hello.
+        if (firstTime) officialChat.welcome(userId);
         return UserDto.from(user);
     }
 

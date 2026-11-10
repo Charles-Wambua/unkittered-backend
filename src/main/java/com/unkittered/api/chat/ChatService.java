@@ -414,6 +414,29 @@ public class ChatService {
         messages.save(new Message(matchId, senderId, prepared));
     }
 
+    /**
+     * Posts a message written by the server on someone's behalf (the official
+     * account's welcome, its pet's note, announcements). It reaches the
+     * recipient live like any message; {@code push} adds a phone notification,
+     * left off when another notification already covers it.
+     */
+    @Transactional
+    public void postAs(UUID matchId, UUID senderId, UUID recipientId, RichMessages.Kind kind, String text,
+                       Map<String, Object> payload, boolean push) {
+        RichMessages.Prepared prepared = RichMessages.prepare(kind, text, payload, senderId,
+                planId -> null, this::isOwnMediaUrl, Instant.now());
+        Message saved = messages.save(new Message(matchId, senderId, prepared));
+        realtime.sendToUser(recipientId, MessagePush.of(saved, null));
+        if (push) {
+            String sender = profiles.findById(senderId).map(Profile::getName)
+                    .filter(n -> !n.isBlank()).orElse("Unkittered");
+            String body = saved.getBody();
+            this.push.sendToUser(recipientId, sender, body.length() > 120 ? body.substring(0, 117) + "…" : body,
+                    Map.of("type", "message", "matchId", matchId.toString(),
+                            "senderId", senderId.toString(), "kind", saved.getKind()));
+        }
+    }
+
     // ── internals ────────────────────────────────────────────────────────────
 
     private Match requireMembership(UUID matchId, UUID viewerId) {

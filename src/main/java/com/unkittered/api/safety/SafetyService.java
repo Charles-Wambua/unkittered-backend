@@ -6,6 +6,7 @@ import com.unkittered.api.discover.DiscoverService;
 import com.unkittered.api.interaction.Match;
 import com.unkittered.api.interaction.MatchRepository;
 import com.unkittered.api.interaction.LikeRepository;
+import com.unkittered.api.chat.OfficialChatService;
 import com.unkittered.api.interaction.Pass;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.unkittered.api.interaction.PassRepository;
@@ -34,11 +35,17 @@ public class SafetyService {
     private final LikeRepository likes;
     private final PassRepository passes;
     private final JdbcTemplate jdbc;
+    private final OfficialChatService officialChat;
+
+    /** The Unkittered team chat stays, like a support line. */
+    static final String CANT_REMOVE_OFFICIAL = "The Unkittered team chat can't be removed. To stop news and tips, "
+            + "turn off \"Reminders, tips & news\" in Settings.";
 
     public SafetyService(BlockRepository blocks, ReportRepository reports, MatchRepository matches,
                          MessageRepository messages, ProfileRepository profiles, UserRepository users,
                          ProfileMapper mapper, DiscoverService discoverService, LikeRepository likes,
-                         PassRepository passes, JdbcTemplate jdbc) {
+                         PassRepository passes, JdbcTemplate jdbc, OfficialChatService officialChat) {
+        this.officialChat = officialChat;
         this.jdbc = jdbc;
         this.passes = passes;
         this.likes = likes;
@@ -56,6 +63,7 @@ public class SafetyService {
     @Transactional
     public void block(UUID blockerId, UUID blockedId) {
         requireOther(blockerId, blockedId);
+        if (officialChat.isOfficial(blockedId)) throw ApiException.badRequest(CANT_REMOVE_OFFICIAL);
         if (!profiles.existsById(blockedId)) {
             throw ApiException.notFound("Profile not found");
         }
@@ -105,6 +113,9 @@ public class SafetyService {
                 .orElseThrow(() -> ApiException.notFound("Match not found"));
         if (!m.getUserLow().equals(userId) && !m.getUserHigh().equals(userId)) {
             throw ApiException.notFound("Match not found");
+        }
+        if (officialChat.isOfficial(m.getUserLow().equals(userId) ? m.getUserHigh() : m.getUserLow())) {
+            throw ApiException.badRequest(CANT_REMOVE_OFFICIAL);
         }
         messages.deleteByMatchId(matchId);
         matches.delete(m);

@@ -54,9 +54,13 @@ public class ReminderService {
     /** SQL: a member's first name. */
     private static final String FIRST_NAME =
             "split_part(COALESCE(NULLIF(trim(%1$s.name), ''), NULLIF(trim(%2$s.display_name), ''), 'Someone'), ' ', 1)";
-    /** SQL: neither of two users has blocked the other. */
+    /**
+     * SQL: neither of two users has blocked the other, and neither is the
+     * official account (its team chat isn't a match to be nudged about).
+     */
     private static final String NOT_BLOCKED = "NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = %1$s AND b.blocked_id = %2$s) "
-            + "OR (b.blocker_id = %2$s AND b.blocked_id = %1$s))";
+            + "OR (b.blocker_id = %2$s AND b.blocked_id = %1$s)) "
+            + "AND NOT EXISTS (SELECT 1 FROM profiles po WHERE po.user_id IN (%1$s, %2$s) AND po.is_official)";
 
     /** One reminder ready to go. */
     record Reminder(UUID userId, String kind, String ref, String title, String body, Map<String, String> data) { }

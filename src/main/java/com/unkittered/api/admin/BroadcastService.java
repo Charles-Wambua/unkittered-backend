@@ -1,5 +1,6 @@
 package com.unkittered.api.admin;
 
+import com.unkittered.api.chat.OfficialChatService;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.mail.MailService;
 import com.unkittered.api.push.PushService;
@@ -67,9 +68,11 @@ public class BroadcastService {
     private final PushService pushes;
     private final MailService mail;
     private final BroadcastService self;
+    private final OfficialChatService officialChat;
 
     public BroadcastService(JdbcTemplate jdbc, AdminService admin, PushService pushes, MailService mail,
-                            @Lazy BroadcastService self) {
+                            @Lazy BroadcastService self, OfficialChatService officialChat) {
+        this.officialChat = officialChat;
         this.jdbc = jdbc;
         this.admin = admin;
         this.pushes = pushes;
@@ -198,6 +201,8 @@ public class BroadcastService {
                     ids.stream().map(u -> new Object[] {u, ref, viaPush ? "push" : "email"}).toList());
             jdbc.update("UPDATE admin_broadcasts SET recipients = recipients + ? WHERE id = ?", ids.size(), broadcastId);
         }
+        // Real announcements also land in each member's Unkittered chat, as an inbox.
+        if (broadcastId != null) officialChat.announce(ids, title, body);
         if (viaPush) {
             pushes.sendToUsers(ids, title, body, Map.of("type", TYPE, "kind", KIND, "ref", ref, "channel", CHANNEL));
         }
