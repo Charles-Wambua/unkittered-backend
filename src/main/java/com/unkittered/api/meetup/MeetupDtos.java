@@ -45,7 +45,9 @@ public final class MeetupDtos {
             /** Messages from others the viewer hasn't seen (members only). */
             long chatUnread,
             /** Where to find the group (host-set), or null. */
-            String meetingPoint) {
+            String meetingPoint,
+            /** Hosted by the official Unkittered team: pinned first, with the tick. */
+            boolean hostOfficial) {
     }
 
     /** Create payload. Extra client fields (hostName, joined, …) are ignored. */

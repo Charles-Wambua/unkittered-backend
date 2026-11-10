@@ -35,6 +35,8 @@ class SitePageControllerTest {
     PresenceService presence;
     @MockitoBean
     UserRepository users;
+    @MockitoBean
+    com.unkittered.api.community.AppReleaseService releases;
 
     @Test
     void pagesArePublicAndForwardToTheirIndex() throws Exception {

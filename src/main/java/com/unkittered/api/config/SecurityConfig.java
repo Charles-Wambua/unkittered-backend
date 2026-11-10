@@ -30,6 +30,7 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/v3/api-docs/**",
             "/actuator/health",
+            "/v1/app/release",   // the update banner checks it before sign-in too
             "/actuator/prometheus", // scrape target (put behind a network ACL/basic-auth in prod)
             "/admin/**",            // static dashboard shell; the API it calls is still admin-guarded
             "/admin"

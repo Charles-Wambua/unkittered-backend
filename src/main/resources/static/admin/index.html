@@ -284,6 +284,41 @@
     .pv-title{font-weight:700;font-size:14px;margin-bottom:2px}
     .pv-body{font-size:13.5px;line-height:1.4;color:#3d322a;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 
+    /* Team inbox */
+    .inbox{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;margin-bottom:16px;align-items:start}
+    @media(max-width:1000px){.inbox{grid-template-columns:1fr}}
+    .inbox .panel{margin-bottom:0}
+    .convs{display:flex;flex-direction:column;gap:2px;margin:0 -8px;max-height:70vh;overflow-y:auto}
+    .conv{display:flex;gap:11px;align-items:center;width:100%;text-align:left;border:0;background:transparent;color:inherit;padding:10px 8px;border-radius:14px;font:inherit}
+    .conv:hover{background:color-mix(in srgb,var(--surf2) 55%,transparent)}
+    .conv.on{background:var(--surf2)}
+    .conv .thumb{cursor:pointer}
+    .conv .cm{flex:1;min-width:0}
+    .conv .ct,.conv .cl{display:flex;justify-content:space-between;gap:8px;align-items:center}
+    .conv .ct b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+    .conv .ct span{font-size:11.5px;color:var(--muted);white-space:nowrap}
+    .conv .cl .lt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:13px}
+    .conv.unread .cl .lt{color:var(--ink);font-weight:600}
+    .pill.unread{background:var(--acc);color:var(--on-acc);flex:none}
+    .thread{display:flex;flex-direction:column;gap:8px;max-height:56vh;min-height:180px;overflow-y:auto;padding:4px 2px 12px}
+    .bub{max-width:78%;padding:9px 13px;border-radius:18px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+    .bub.member{align-self:flex-start;background:var(--surf2);color:var(--ink);border-bottom-left-radius:6px}
+    .bub.team{align-self:flex-end;background:var(--acc);color:var(--on-acc);border-bottom-right-radius:6px}
+    .bub .kind{display:block;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.75;margin-bottom:2px}
+    .bub .bt{display:block;font-size:11px;opacity:.7;margin-top:4px}
+    .reply{border-top:1px solid var(--line);padding-top:14px;margin-top:6px}
+    .reply textarea.input{min-height:84px}
+    .reply .row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+
+    /* Releases, pet of the week */
+    .form2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+    @media(max-width:600px){.form2{grid-template-columns:1fr}}
+    .form2 .input{margin-bottom:0}
+    .potw{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+    .potw img,.potw .av{width:140px;height:140px;border-radius:28px;object-fit:cover;background:var(--surf2);font-size:44px}
+    .potw img{cursor:zoom-in}
+    .potw h3{font:700 34px/1.05 var(--serif);margin:0 0 4px}
+
     /* Lightbox + toast */
     .lightbox{position:fixed;inset:0;background:rgba(10,8,6,.82);display:none;align-items:center;justify-content:center;z-index:65;padding:24px;cursor:zoom-out}
     .lightbox.on{display:flex}
@@ -346,6 +381,9 @@
       <button class="nav-item" data-view="reports" onclick="go('reports')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M5 21V4h11l-1.5 4L16 12H5"/></svg></span>Reports<span class="count" id="navReports"></span></button>
       <button class="nav-item" data-view="members" onclick="go('members')"><span class="ni"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.2.6 3.5 2.6 3.5 6"/></svg></span>Members</button>
       <button class="nav-item" data-view="broadcast" onclick="go('broadcast')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 9a3.5 3.5 0 0 1 0 6M19 6.5a7 7 0 0 1 0 11"/></svg></span>Broadcast</button>
+      <button class="nav-item" data-view="inbox" onclick="go('inbox')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z"/><path d="M8 10h8M8 13h5"/></svg></span>Team inbox<span class="count" id="navInbox"></span></button>
+      <button class="nav-item" data-view="releases" onclick="go('releases')"><span class="ni"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 7v7M9 11l3 3 3-3M10 18.5h4"/></svg></span>Releases</button>
+      <button class="nav-item" data-view="potw" onclick="go('potw')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20.5h7M10 17h4v3.5h-4z"/></svg></span>Pet of the week</button>
       <button class="nav-item" data-view="analytics" onclick="go('analytics')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span>Analytics</button>
       <button class="nav-item" data-view="revenue" onclick="go('revenue')"><span class="ni"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>Growth &amp; revenue</button>
       <button class="nav-item" data-view="system" onclick="go('system')"><span class="ni"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>System &amp; traffic</button>
@@ -501,6 +539,64 @@
         </div>
       </section>
 
+      <!-- Team inbox -->
+      <section class="view" id="view-inbox">
+        <div class="inbox">
+          <div class="panel">
+            <h2>Conversations <span class="pill" id="tiCount"></span></h2>
+            <div id="tiList"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="panel" id="tiPanel">
+            <h2 id="tiHead">Messages</h2>
+            <div class="thread" id="tiThread"><div class="empty">Pick a conversation to read it.</div></div>
+            <div class="reply hidden" id="tiReply">
+              <label class="f" for="tiText">Reply as the Unkittered team</label>
+              <textarea class="input" id="tiText" maxlength="2000" placeholder="Write a reply…" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();sendTeamReply();}"></textarea>
+              <div class="row">
+                <span class="muted" style="font-size:12.5px">The member gets a push. Ctrl/Cmd + Enter sends.</span>
+                <button class="btn primary" id="tiSend" onclick="sendTeamReply()">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Releases -->
+      <section class="view" id="view-releases">
+        <div class="panel">
+          <h2>Latest release <span class="muted" id="relUpdated"></span></h2>
+          <p class="muted" style="margin:-8px 0 14px">Members on an older build see an Update available banner that opens this link.</p>
+          <div class="form2">
+            <div class="field"><label class="f" for="relVersion">Version</label><input class="input" id="relVersion" placeholder="1.0.4" oninput="relDirty=true" /></div>
+            <div class="field"><label class="f" for="relBuild">Build number</label><input class="input" id="relBuild" type="number" min="1" step="1" placeholder="5" oninput="relDirty=true" /></div>
+          </div>
+          <div class="field"><label class="f" for="relUrl">Download URL</label><input class="input" id="relUrl" type="url" placeholder="https://…" oninput="relDirty=true" style="margin-bottom:0" /></div>
+          <div class="field"><label class="f" for="relNotes">What's new</label><textarea class="input" id="relNotes" maxlength="2000" placeholder="A line or two about what changed." oninput="relDirty=true"></textarea></div>
+          <div id="relErr" class="inline-err hidden"></div>
+          <div class="send-row"><button class="btn primary" id="relSave" onclick="saveRelease()">Save</button></div>
+        </div>
+        <div class="grid32">
+          <div class="panel"><h2>Members by version</h2><div id="relVersions"><div class="empty">Loading…</div></div></div>
+          <div class="panel"><h2>Members <span class="muted">· newest seen first</span></h2><div class="tbl" id="relMembers"><div class="empty">Loading…</div></div></div>
+        </div>
+      </section>
+
+      <!-- Pet of the week -->
+      <section class="view" id="view-potw">
+        <div class="panel">
+          <h2>This week's winner</h2>
+          <div id="potwCurrent"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="panel">
+          <h2>This week's nominations <span class="pill" id="potwCount"></span></h2>
+          <div class="tbl" id="potwWeek"><div class="empty">Loading…</div></div>
+          <div class="send-row" style="align-items:center;justify-content:space-between">
+            <span class="muted" style="font-size:12.5px">Runs automatically every Monday at 9:00. Use this to pick early.</span>
+            <button class="btn primary" id="potwRun" onclick="runPotw()">Pick the winner now</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Analytics -->
       <section class="view" id="view-analytics">
         <div id="analyticsErr" class="inline-err hidden"></div>
@@ -585,7 +681,8 @@
     const TITLES = {
       overview:'Good <em>day</em>', review:'Review <em>queue</em>', reports:'<em>Reports</em>',
       revenue:'Growth &amp; <em>revenue</em>', system:'System &amp; <em>traffic</em>',
-      members:'<em>Members</em>', analytics:'<em>Analytics</em>', broadcast:'<em>Broadcast</em>'
+      members:'<em>Members</em>', analytics:'<em>Analytics</em>', broadcast:'<em>Broadcast</em>',
+      inbox:'Team <em>inbox</em>', releases:'<em>Releases</em>', potw:'Pet of the <em>week</em>'
     };
 
     function setApi(v){
@@ -623,6 +720,9 @@
       if(view==='members' && !go._members){ go._members=true; searchMembers(); }
       if(view==='analytics') loadAnalytics();
       if(view==='broadcast') loadBroadcasts();
+      if(view==='inbox') loadInbox();
+      if(view==='releases') loadReleases();
+      if(view==='potw') loadPotw();
       Object.values(charts).forEach(c=>c.resize());
     }
     function greeting(){
@@ -753,6 +853,12 @@
           .catch(()=>api('/admin/reports').then(renderReports))
           .catch(e=>{ document.getElementById('reports').innerHTML='<div class="inline-err">Could not load reports (error '+(e.code||'?')+').</div>'; });
         if(document.getElementById('view-analytics').classList.contains('active')) loadAnalytics();
+        // Team inbox badge (and the list, when it's open). Fails silently.
+        api('/admin/team/inbox').then(list=>{
+          list = list||[];
+          setInboxCount(list);
+          if(document.getElementById('view-inbox').classList.contains('active')) renderInbox(list);
+        }).catch(()=>{});
         renderSystem(sys); renderTraffic(sys);
         stamp();
       }catch(e){
@@ -1287,6 +1393,213 @@
         toast(on?'Member suspended':'Suspension lifted');
         openMember(id); refresh(); if(go._members) searchMembers();
       }catch(e){ if(e.code===401||e.code===403) logout(); else toast('Failed (error '+(e.code||'?')+')'); }
+    }
+
+    // ── Team inbox ─────────────────────────────────────────────────────────
+    // Members' chats with the official Unkittered team account.
+    let inboxList = [];
+    let inboxOpen = null;   // matchId of the open conversation
+    function setInboxCount(list){
+      const n = (list||[]).reduce((s,c)=>s+(+c.unread||0), 0);
+      document.getElementById('navInbox').textContent = n>0 ? n : '';
+    }
+    async function loadInbox(){
+      const el = document.getElementById('tiList');
+      try{
+        const list = await api('/admin/team/inbox');
+        setInboxCount(list||[]);
+        renderInbox(list||[]);
+      }catch(e){
+        if(e.code===401||e.code===403){ logout(); return; }
+        el.innerHTML = '<div class="inline-err">Could not load the team inbox (error '+(e.code||'?')+').</div>';
+      }
+    }
+    function renderInbox(list){
+      inboxList = list;
+      const el = document.getElementById('tiList');
+      const unreadChats = list.filter(c=>(+c.unread||0)>0).length;
+      document.getElementById('tiCount').textContent = unreadChats ? unreadChats+' unread' : (list.length || '0');
+      if(!list.length){ el.innerHTML = emptyState('No messages to the team yet'); return; }
+      el.innerHTML = `<div class="convs">${list.map(c=>{
+        const unread = +c.unread||0;
+        const preview = (c.lastFromMember ? '' : 'You: ') + (c.lastText||'');
+        return `<button class="conv ${unread?'unread':''} ${c.matchId===inboxOpen?'on':''}" data-id="${esc(c.matchId)}" onclick="openThread(this.dataset.id)">
+          ${avatar({imageUrl:c.photoUrl, name:c.name}, 42, 14)}
+          <span class="cm">
+            <span class="ct"><b>${esc(c.name||'Member')}</b><span>${esc(ago(c.lastAt))}</span></span>
+            <span class="cl"><span class="lt">${esc(preview)}</span>${unread?`<span class="pill unread">${unread}</span>`:''}</span>
+          </span></button>`;
+      }).join('')}</div>`;
+    }
+    const KIND_LABELS = {PHOTO:'Photo', PET_NOTE:'Pet note', GIFT:'Gift', PLAN:'Plan'};
+    function kindLabel(k){ k = (k||'').toString().toUpperCase(); return KIND_LABELS[k] || nice(k.toLowerCase()); }
+    async function openThread(matchId, keepScroll){
+      inboxOpen = matchId;
+      document.querySelectorAll('#tiList .conv').forEach(b=>b.classList.toggle('on', b.dataset.id===matchId));
+      const th = document.getElementById('tiThread');
+      if(!keepScroll){
+        th.innerHTML = '<div class="empty">Loading…</div>';
+        document.getElementById('tiReply').classList.add('hidden');
+        if(matchMedia('(max-width:1000px)').matches) document.getElementById('tiPanel').scrollIntoView({behavior:'smooth', block:'start'});
+      }
+      try{
+        const d = await api('/admin/team/inbox/'+encodeURIComponent(matchId));
+        if(inboxOpen!==matchId) return;   // switched to another chat meanwhile
+        const m = d.member||{};
+        document.getElementById('tiHead').innerHTML =
+          `<span class="who-cell">${avatar({imageUrl:m.photoUrl, name:m.name}, 34, 11)}<span><b>${esc(m.name||'Member')}</b>${m.email?`<div class="meta-line" style="margin:0">${esc(m.email)}</div>`:''}</span></span>
+           ${m.id?`<button class="linkish" style="margin-left:auto" data-id="${esc(m.id)}" onclick="openMember(this.dataset.id)">View profile</button>`:''}`;
+        const msgs = d.messages||[];
+        th.innerHTML = msgs.length ? msgs.map(x=>{
+          const kind = (x.kind||'TEXT').toString().toUpperCase();
+          const label = kind!=='TEXT' ? `<span class="kind">${esc(kindLabel(kind))}</span>` : '';
+          return `<div class="bub ${x.fromTeam?'team':'member'}">${label}${esc(x.text)}<span class="bt">${esc(fmtDate(x.at))}</span></div>`;
+        }).join('') : emptyState('No messages in this chat yet.');
+        th.scrollTop = th.scrollHeight;
+        document.getElementById('tiReply').classList.remove('hidden');
+        // Opening marks the member's messages read.
+        const c = inboxList.find(c=>c.matchId===matchId);
+        if(c && c.unread){ c.unread = 0; renderInbox(inboxList); setInboxCount(inboxList); }
+      }catch(e){
+        if(e.code===401||e.code===403){ logout(); return; }
+        if(inboxOpen===matchId) th.innerHTML = '<div class="inline-err">Could not load this conversation (error '+(e.code||'?')+').</div>';
+      }
+    }
+    async function sendTeamReply(){
+      const box = document.getElementById('tiText'), btn = document.getElementById('tiSend');
+      const text = box.value.trim(), matchId = inboxOpen;
+      if(!matchId || btn.disabled) return;
+      if(!text){ toast('Write a reply first'); return; }
+      btn.disabled = true; box.disabled = true; btn.textContent = 'Sending…';
+      try{
+        await api('/admin/team/inbox/'+encodeURIComponent(matchId)+'/reply', {method:'POST', body: JSON.stringify({text})});
+        box.value = '';
+        toast('Reply sent');
+        await openThread(matchId, true);
+        loadInbox();
+      }catch(e){
+        if(e.code===401||e.code===403) logout(); else toast('Could not send (error '+(e.code||'?')+')');
+      }finally{ btn.disabled = false; box.disabled = false; btn.textContent = 'Send'; }
+    }
+
+    // ── Releases ───────────────────────────────────────────────────────────
+    let relDirty = false;
+    function fillRelease(r){
+      r = r||{};
+      document.getElementById('relVersion').value = r.version||'';
+      document.getElementById('relBuild').value = r.build!=null ? r.build : '';
+      document.getElementById('relUrl').value = r.url||'';
+      document.getElementById('relNotes').value = r.notes||'';
+      document.getElementById('relUpdated').textContent = r.updatedAt ? '· saved '+fmtDate(r.updatedAt) : (r.version ? '' : '· none published yet');
+      relDirty = false;
+    }
+    async function loadReleases(){
+      const err = document.getElementById('relErr');
+      api('/admin/team/release').then(r=>{
+        err.classList.add('hidden');
+        if(!relDirty) fillRelease(r);
+      }).catch(e=>{
+        if(e.code===401||e.code===403){ logout(); return; }
+        err.textContent = 'Could not load the current release (error '+(e.code||'?')+').'; err.classList.remove('hidden');
+      });
+      const vEl = document.getElementById('relVersions'), mEl = document.getElementById('relMembers');
+      try{
+        const d = await api('/admin/team/versions') || {};
+        const label = v => v ? v : '1.0.3 or older';
+        vEl.innerHTML = hbars((d.byVersion||[]).map(r=>({label:label(r.version), count:r.members})), null, true);
+        const ms = (d.members||[]).slice().sort((a,b)=>{
+          const ta = a.seenAt ? new Date(a.seenAt).getTime() : 0, tb = b.seenAt ? new Date(b.seenAt).getTime() : 0;
+          return tb - ta;
+        });
+        mEl.innerHTML = ms.length
+          ? `<table><thead><tr><th>Name</th><th>Email</th><th>Version</th><th>Last seen</th></tr></thead><tbody>${ms.map(m=>`<tr class="click" data-id="${esc(m.id)}" onclick="openMember(this.dataset.id)">
+              <td><b>${esc(m.name||'No name yet')}</b></td>
+              <td class="muted">${esc(m.email||'')}</td>
+              <td>${m.version?`<span class="pill user">${esc(m.version)}</span>`:'<span class="pill">1.0.3 or older</span>'}</td>
+              <td class="muted" style="white-space:nowrap" title="${esc(fmtDate(m.seenAt))}">${esc(m.seenAt?ago(m.seenAt):'')}</td></tr>`).join('')}</tbody></table>`
+          : emptyState('No members yet.');
+      }catch(e){
+        if(e.code===401||e.code===403){ logout(); return; }
+        const msg = '<div class="inline-err">Could not load app versions (error '+(e.code||'?')+').</div>';
+        vEl.innerHTML = msg; mEl.innerHTML = '';
+      }
+    }
+    async function saveRelease(){
+      const err = document.getElementById('relErr'), btn = document.getElementById('relSave');
+      const version = document.getElementById('relVersion').value.trim();
+      const buildRaw = document.getElementById('relBuild').value.trim();
+      const url = document.getElementById('relUrl').value.trim();
+      const notes = document.getElementById('relNotes').value.trim();
+      const problems = [];
+      if(!version) problems.push('Add a version, e.g. 1.0.4.');
+      if(!/^\d+$/.test(buildRaw) || +buildRaw < 1) problems.push('Build number must be a whole number of 1 or more.');
+      if(!url) problems.push('Add the download URL.');
+      else if(!/^https:\/\//i.test(url)) problems.push('The download URL must start with https://');
+      if(problems.length){ err.textContent = problems.join(' '); err.classList.remove('hidden'); return; }
+      err.classList.add('hidden');
+      btn.disabled = true;
+      try{
+        const r = await api('/admin/team/release', {method:'PUT', body: JSON.stringify({version, build: parseInt(buildRaw,10), url, notes})});
+        fillRelease(r || {version, build: parseInt(buildRaw,10), url, notes});
+        toast('Release saved');
+      }catch(e){
+        if(e.code===401||e.code===403){ logout(); return; }
+        err.textContent = 'Could not save the release (error '+(e.code||'?')+').'; err.classList.remove('hidden');
+      }finally{ btn.disabled = false; }
+    }
+
+    // ── Pet of the week ────────────────────────────────────────────────────
+    function fmtWeek(v){
+      // A bare date (2026-11-09) is local midnight, not UTC.
+      if(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) v = v + 'T00:00:00';
+      return fmtDay(v);
+    }
+    async function loadPotw(){
+      const cur = document.getElementById('potwCurrent'), wk = document.getElementById('potwWeek');
+      try{
+        const d = await api('/admin/team/pet-of-the-week') || {};
+        renderPotwCurrent(d.current);
+        const list = d.thisWeek||[];
+        document.getElementById('potwCount').textContent = list.length || '0';
+        wk.innerHTML = list.length
+          ? `<table><thead><tr><th>Pet</th><th>Owner</th><th style="text-align:right">Nominations</th></tr></thead><tbody>${list.map(p=>`<tr>
+              <td><b>${esc(p.petName||'Unnamed')}</b></td>
+              <td>${esc(p.ownerName||'')}</td>
+              <td style="text-align:right"><b>${num(p.nominations)}</b></td></tr>`).join('')}</tbody></table>`
+          : emptyState('No nominations this week yet.');
+      }catch(e){
+        if(e.code===401||e.code===403){ logout(); return; }
+        cur.innerHTML = '<div class="inline-err">Could not load pet of the week (error '+(e.code||'?')+').</div>';
+        wk.innerHTML = '';
+      }
+    }
+    function renderPotwCurrent(c){
+      const el = document.getElementById('potwCurrent');
+      if(!c){ el.innerHTML = emptyState('No pet of the week yet.'); return; }
+      const photo = mediaUrl(c.petPhotoUrl);
+      el.innerHTML = `<div class="potw">
+        ${photo ? `<img src="${esc(photo)}" alt="" onclick="zoom(this.src)" onerror="this.style.opacity=.2"/>`
+                : `<span class="av">${esc((c.petName||'?').slice(0,1).toUpperCase())}</span>`}
+        <div>
+          <h3>${esc(c.petName||'Unnamed')}</h3>
+          <div class="meta-line">with ${esc(c.ownerName||'their human')}</div>
+          <div class="tags">
+            <span class="pill gold">${num(c.nominations)} ${c.nominations===1?'nomination':'nominations'}</span>
+            ${c.week?`<span class="pill">Week of ${esc(fmtWeek(c.week))}</span>`:''}
+          </div>
+        </div></div>`;
+    }
+    async function runPotw(){
+      if(!confirm('Pick the pet of the week now? This posts the team story and awards the badge.')) return;
+      const btn = document.getElementById('potwRun'); btn.disabled = true;
+      try{
+        const c = await api('/admin/team/pet-of-the-week/run', {method:'POST'});
+        if(c) renderPotwCurrent(c);
+        toast(c && c.petName ? c.petName+' is pet of the week' : 'Winner picked');
+        loadPotw();
+      }catch(e){
+        if(e.code===401||e.code===403) logout(); else toast('Could not pick a winner (error '+(e.code||'?')+')');
+      }finally{ btn.disabled = false; }
     }
 
     // ── Analytics ──────────────────────────────────────────────────────────

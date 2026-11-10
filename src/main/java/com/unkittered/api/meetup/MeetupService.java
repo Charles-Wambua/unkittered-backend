@@ -123,6 +123,8 @@ public class MeetupService {
         for (Meetup m : upcoming) {
             if (m.getEndsAt().isAfter(now) && !hidden.contains(m.getHostId())) out.add(toDto(m, viewerId, now));
         }
+        // Team packs first; otherwise soonest first (stable sort keeps that order).
+        out.sort(Comparator.comparing((MeetupDto d) -> d.hostOfficial() ? 0 : 1));
         return out;
     }
 
@@ -244,7 +246,8 @@ public class MeetupService {
                 PackTimeline.chatOpensAt(m),
                 PackTimeline.chatClosesAt(m),
                 unread,
-                mine != null ? m.getMeetingPoint() : null);
+                mine != null ? m.getMeetingPoint() : null,
+                host != null && host.isOfficial());
     }
 
     /**

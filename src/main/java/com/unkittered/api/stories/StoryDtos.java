@@ -24,7 +24,9 @@ public final class StoryDtos {
             String avatarImageUrl,
             List<StoryItemDto> items,
             boolean seen,
-            boolean isMine) {
+            boolean isMine,
+            /** The official Unkittered team: shown right after the viewer's own ring, with a gold ring. */
+            boolean official) {
     }
 
     /** Text-only story creation payload. */

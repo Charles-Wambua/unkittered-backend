@@ -63,12 +63,13 @@ public class StoryService {
                     p.getImageUrl(),
                     items,
                     false,                       // seen is tracked client-side
-                    p.getUserId().equals(viewerId)));
+                    p.getUserId().equals(viewerId),
+                    p.isOfficial()));
         }
 
-        // Own ring first, then others by their newest frame (desc).
+        // Own ring first, then the team's, then others by their newest frame (desc).
         result.sort(Comparator
-                .comparing((StoryDto d) -> d.isMine() ? 0 : 1)
+                .comparing((StoryDto d) -> d.isMine() ? 0 : d.official() ? 1 : 2)
                 .thenComparing(d -> newestAt(d), Comparator.reverseOrder()));
         return result;
     }
