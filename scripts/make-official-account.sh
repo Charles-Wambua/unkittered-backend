@@ -4,7 +4,7 @@
 #
 #   bash scripts/make-official-account.sh EMAIL
 #
-# Name "Unkittered", the paw logo as its photo, Biscuit (the mascot, wearing the
+# Name "Unkittered", the paw logo as its photo, Shenron (the mascot, wearing the
 # Gold crown) as its pet, and the official tick everywhere it appears. It also
 # drops out of the discover deck and map. The login is left exactly as it is.
 set -euo pipefail
@@ -24,7 +24,7 @@ put() {
 BASE=$(sudo -u postgres psql -d unkittered -tAc \
   "select substring(image_url from '^(.*)/files/') from profiles where image_url like '%/files/%' limit 1")
 LOGO=$BASE/files/$(put logo.png)
-PET=$BASE/files/$(put biscuit.png)
+PET=$BASE/files/$(put shenron.png)
 
 sudo -u postgres psql -d unkittered -v ON_ERROR_STOP=1 -v email="$EMAIL" -v logo="$LOGO" -v pet="$PET" <<'SQL'
 BEGIN;
@@ -41,11 +41,11 @@ DELETE FROM profile_gallery WHERE user_id = :'uid';
 INSERT INTO profile_gallery (user_id, value) VALUES (:'uid', :'pet');
 DELETE FROM pets WHERE owner_id = :'uid';
 INSERT INTO pets (owner_id, position, name, species, breed_and_age, energy, comes_on_dates, photo_url)
-  VALUES (:'uid', 0, 'Biscuit', 'dog', 'Chief Wag Officer · Golden pup', 5, true, :'pet');
+  VALUES (:'uid', 0, 'Shenron', 'dog', 'Chief Wag Officer · Golden pup', 5, true, :'pet');
 INSERT INTO pet_temperaments (pet_id, value)
   SELECT id, t FROM pets, unnest(ARRAY['new_people', 'cats', 'small_dogs', 'big_dogs']) AS t WHERE owner_id = :'uid';
 DELETE FROM profile_pets WHERE user_id = :'uid';
-INSERT INTO profile_pets (user_id, value) VALUES (:'uid', U&'\+01F415 Biscuit');
+INSERT INTO profile_pets (user_id, value) VALUES (:'uid', U&'\+01F415 Shenron');
 COMMIT;
 SELECT u.email, u.display_name, p.name, p.is_official, p.is_verified, p.image_url
   FROM users u JOIN profiles p ON p.user_id = u.id WHERE u.id = :'uid';
