@@ -35,8 +35,10 @@ UPDATE profiles SET
   image_url = :'logo',
   is_official = true,
   is_verified = true,
+  card_quote = '',
   bio = 'The official Unkittered account 🐾 Updates, new features and the occasional good boy. Questions or ideas? Message us right here.'
 WHERE user_id = :'uid';
+DELETE FROM profile_interests WHERE user_id = :'uid';
 DELETE FROM profile_gallery WHERE user_id = :'uid';
 INSERT INTO profile_gallery (user_id, value) VALUES (:'uid', :'pet');
 DELETE FROM pets WHERE owner_id = :'uid';
