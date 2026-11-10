@@ -13,5 +13,5 @@ DEST=/opt/unkittered/uploads/$NAME
 sudo -u unkittered git -C "$APP" fetch -q origin builds
 sudo -u unkittered git -C "$APP" show "FETCH_HEAD:$NAME" | sudo tee "$DEST" > /dev/null
 sudo chown unkittered: "$DEST"
-ls -l "$DEST"
-sha256sum "$DEST"
+sudo ls -l "$DEST"
+sudo sha256sum "$DEST"
