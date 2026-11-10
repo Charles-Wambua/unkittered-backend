@@ -47,6 +47,8 @@ public record ProfileDto(
         /** Self-declared procedure wire value, or null. */
         String sterilisationProcedure,
         /** Only meaningful on the member's own profile. */
-        boolean paused
+        boolean paused,
+        /** The official Unkittered account: shown with the verified tick. */
+        boolean official
 ) implements Serializable {
 }

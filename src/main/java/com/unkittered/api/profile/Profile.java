@@ -56,6 +56,10 @@ public class Profile {
     @Column(nullable = false)
     private boolean paused = false;
 
+    /** The official Unkittered account: verified tick everywhere, never in the deck. */
+    @Column(name = "is_official", nullable = false)
+    private boolean official = false;
+
     /** Self-declared procedure; null = not declared. */
     @Column(name = "sterilisation_procedure")
     private String sterilisationProcedure;
@@ -156,6 +160,8 @@ public class Profile {
     public Instant getPledgedAt() { return pledgedAt; }
     public void setPledgedAt(Instant pledgedAt) { this.pledgedAt = pledgedAt; }
     public boolean isPaused() { return paused; }
+    public boolean isOfficial() { return official; }
+    public void setOfficial(boolean official) { this.official = official; }
     public void setPaused(boolean paused) { this.paused = paused; }
     public String getSterilisationProcedure() { return sterilisationProcedure; }
     public void setSterilisationProcedure(String p) { this.sterilisationProcedure = p; }

@@ -88,7 +88,8 @@ public class ProfileMapper {
                 PledgePath.badgeFor(p.isVerified(), p.isSterilisationVerified()),
                 p.isSterilisationVerified() ? "verified" : p.isSterilisationDeclared() ? "declared" : "none",
                 p.getSterilisationProcedure(),
-                !redactHiddenPresence && p.isPaused()
+                !redactHiddenPresence && p.isPaused(),
+                p.isOfficial()
         );
     }
 
@@ -105,6 +106,6 @@ public class ProfileMapper {
                 false, List.of(), null, null,
                 species == null ? List.of() : List.of(species),
                 null, List.of(), null, false, null, false, true, false, null,
-                "dating", false, List.of(), null, null, "none", "none", null, false);
+                "dating", false, List.of(), null, null, "none", "none", null, false, false);
     }
 }

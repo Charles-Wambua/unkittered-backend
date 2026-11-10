@@ -29,6 +29,7 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
     @Query("""
         SELECT p FROM Profile p
         WHERE p.userId <> :viewerId
+          AND p.official = false
           AND p.userId IN (
               SELECT u.id FROM User u WHERE u.onboardingComplete = true AND u.suspended = false
           )
