@@ -76,6 +76,10 @@ spring.cloud.aws:
     endpoint: ${AWS_SQS_ENDPOINT:http://localstack:4566}
 
 unkittered:
+  android:
+    # SHA-256 fingerprint(s) of the APK signing key(s), comma-separated, so
+    # shared profile links open in the app (/.well-known/assetlinks.json).
+    cert-sha256: ${UNKITTERED_ANDROID_CERT_SHA256:}
   mail:
     # Sender shown to members; defaults to the SMTP username.
     from: ${UNKITTERED_MAIL_FROM:}

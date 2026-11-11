@@ -41,6 +41,30 @@ public final class RealtimeEvents {
         }
     }
 
+    /** The other person read everything sent to them in this conversation up to {@code readAt}. */
+    public record ReadPush(String type, String matchId, Instant readAt) {
+
+        public static ReadPush of(UUID matchId, Instant readAt) {
+            return new ReadPush("read", matchId.toString(), readAt);
+        }
+    }
+
+    /** Someone is typing in a conversation (relayed from their socket; nothing is stored). */
+    public record TypingPush(String type, String matchId, String userId) {
+
+        public static TypingPush of(UUID matchId, UUID userId) {
+            return new TypingPush("typing", matchId.toString(), userId.toString());
+        }
+    }
+
+    /** A match came online or went offline (only sent for members who show their activity). */
+    public record PresencePush(String type, String userId, boolean online) {
+
+        public static PresencePush of(UUID userId, boolean online) {
+            return new PresencePush("presence", userId.toString(), online);
+        }
+    }
+
     /** A new mutual match. The client refetches /matches & /conversations. */
     public record MatchPush(
             String type,

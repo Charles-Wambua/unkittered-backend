@@ -46,6 +46,13 @@ public class InteractionController {
         return new MatchResult(outcome.isMatch(), outcome.alreadyMatched());
     }
 
+    @Operation(summary = "Take back a wag or super-like (Plus & Gold; 409 once matched, 204 if there was none)")
+    @DeleteMapping("/likes/{profileId}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void unlike(@PathVariable String profileId) {
+        interactions.unlike(CurrentUser.id(), new TargetRequest(profileId).uuid());
+    }
+
     @Operation(summary = "Super-like a profile")
     @PostMapping("/super-likes")
     public MatchResult superLike(@RequestBody SuperLikeRequest req) {

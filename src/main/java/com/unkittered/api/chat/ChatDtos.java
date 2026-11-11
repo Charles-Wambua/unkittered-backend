@@ -98,6 +98,12 @@ public final class ChatDtos {
     }
 
     /**
+     * A conversation's messages, oldest first. {@code hasMore} says older ones
+     * exist beyond this page (always false when the whole thread is returned).
+     */
+    public record MessagePage(java.util.List<MessageDto> messages, boolean hasMore) { }
+
+    /**
      * Send a message. Plain text needs only {@code text}; other kinds put their
      * fields in {@code payload} (see {@link RichMessages}).
      */

@@ -3,6 +3,7 @@ package com.unkittered.api.chat;
 import com.unkittered.api.chat.ChatDtos.ConversationDto;
 import com.unkittered.api.chat.ChatDtos.MatchDto;
 import com.unkittered.api.chat.ChatDtos.MessageDto;
+import com.unkittered.api.chat.ChatDtos.MessagePage;
 import com.unkittered.api.chat.ChatDtos.SendMessageRequest;
 import com.unkittered.api.common.ApiException;
 import com.unkittered.api.pet.PetRepository;
@@ -14,6 +15,7 @@ import com.unkittered.api.profile.ProfileMapper;
 import com.unkittered.api.profile.ProfileRepository;
 import com.unkittered.api.push.PushService;
 import com.unkittered.api.realtime.RealtimeEvents.MessagePush;
+import com.unkittered.api.realtime.RealtimeEvents.ReadPush;
 import com.unkittered.api.realtime.RealtimeGateway;
 import com.unkittered.api.subscription.SubscriptionService;
 import org.springframework.beans.factory.annotation.Value;
@@ -112,25 +114,86 @@ public class ChatService {
                 .toList();
     }
 
+    /** The whole conversation, oldest first (marks it read). */
     @Transactional
     public List<MessageDto> messages(UUID viewerId, UUID matchId) {
-        requireMembership(matchId, viewerId);
-        messages.markRead(matchId, viewerId, Instant.now());
+        return messages(viewerId, matchId, null, null).messages();
+    }
+
+    /** Most messages one page can carry. */
+    static final int MAX_PAGE = 100;
+
+    /** Stands in for "no upper bound" (Postgres can't store {@link Instant#MAX}). */
+    private static final Instant FAR_FUTURE = Instant.parse("9999-01-01T00:00:00Z");
+
+    /**
+     * The conversation, oldest first (marks it read). With a {@code limit} only
+     * the newest {@code limit} messages older than {@code before} (or the newest
+     * overall) are loaded; without one the whole thread is, as it always was.
+     */
+    @Transactional
+    public MessagePage messages(UUID viewerId, UUID matchId, Integer limit, Instant before) {
+        Match match = requireMembership(matchId, viewerId);
+        markReadAndTell(match, viewerId);
         Instant cleared = clearedAt(viewerId, matchId);
-        List<Message> all = messages.findByMatchIdOrderByCreatedAtAsc(matchId).stream()
-                .filter(m -> cleared == null || m.getCreatedAt().isAfter(cleared))
-                .toList();
+        List<Message> shown;
+        boolean hasMore = false;
+        if (limit == null) {
+            shown = messages.findByMatchIdOrderByCreatedAtAsc(matchId).stream()
+                    .filter(m -> cleared == null || m.getCreatedAt().isAfter(cleared))
+                    .toList();
+        } else {
+            int size = clampLimit(limit);
+            // One extra row tells us whether anything older is left.
+            List<Message> newestFirst = messages.findByMatchIdAndCreatedAtAfterAndCreatedAtBeforeOrderByCreatedAtDesc(
+                    matchId, cleared == null ? Instant.EPOCH : cleared, before == null ? FAR_FUTURE : before,
+                    org.springframework.data.domain.PageRequest.of(0, size + 1));
+            hasMore = newestFirst.size() > size;
+            List<Message> page = new java.util.ArrayList<>(hasMore ? newestFirst.subList(0, size) : newestFirst);
+            java.util.Collections.reverse(page);
+            shown = page;
+        }
         Map<UUID, Message> byId = new java.util.HashMap<>();
-        all.forEach(m -> byId.put(m.getId(), m));
+        shown.forEach(m -> byId.put(m.getId(), m));
+        // Quoted messages that fell outside this page (but not behind a "delete chat").
+        Map<UUID, Message> quoted = new java.util.HashMap<>(byId);
+        Set<UUID> missing = new HashSet<>();
+        for (Message m : shown) {
+            if (m.getReplyToId() != null && !byId.containsKey(m.getReplyToId())) missing.add(m.getReplyToId());
+        }
+        if (limit != null && !missing.isEmpty()) {
+            messages.findAllById(missing).stream()
+                    .filter(q -> q.getMatchId().equals(matchId))
+                    .filter(q -> cleared == null || q.getCreatedAt().isAfter(cleared))
+                    .forEach(q -> quoted.put(q.getId(), q));
+        }
         Map<UUID, List<MessageReaction>> reacted = new java.util.HashMap<>();
         reactions.findByMessageIdIn(byId.keySet())
                 .forEach(r -> reacted.computeIfAbsent(r.getMessageId(), k -> new java.util.ArrayList<>()).add(r));
-        return all.stream()
+        return new MessagePage(shown.stream()
                 .map(m -> MessageDto.from(m, viewerId,
-                        m.getReplyToId() == null ? null : byId.get(m.getReplyToId()),
+                        m.getReplyToId() == null ? null : quoted.get(m.getReplyToId()),
                         Reactions.group(reacted.getOrDefault(m.getId(), List.of()),
                                 MessageReaction::getEmoji, MessageReaction::getUserId)))
-                .toList();
+                .toList(), hasMore);
+    }
+
+    static int clampLimit(int limit) {
+        return Math.max(1, Math.min(MAX_PAGE, limit));
+    }
+
+    /** Marks the conversation read without fetching it (the chat is open and a message just arrived). */
+    @Transactional
+    public void markRead(UUID viewerId, UUID matchId) {
+        markReadAndTell(requireMembership(matchId, viewerId), viewerId);
+    }
+
+    /** Marks what the viewer received as read; if anything changed, the sender's ticks update live. */
+    private void markReadAndTell(Match match, UUID viewerId) {
+        Instant now = Instant.now();
+        if (messages.markRead(match.getId(), viewerId, now) > 0) {
+            realtime.sendToUser(otherUserId(match, viewerId), ReadPush.of(match.getId(), now));
+        }
     }
 
     /**

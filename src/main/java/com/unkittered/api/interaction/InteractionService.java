@@ -162,6 +162,40 @@ public class InteractionService {
                 Map.of("type", "like"));
     }
 
+    /**
+     * Takes back a wag (plain or super) that hasn't become a match: the person
+     * can turn up in the deck again and no longer sees it in their likes. A
+     * pet note taken back in the week it was sent is returned to the weekly
+     * allowance; plain wags are unlimited on the tiers that can rewind.
+     */
+    @Transactional
+    public void unlike(UUID likerId, UUID likeeId) {
+        String tier = users.findById(likerId).map(User::getSubscriptionTier).orElse("free");
+        if (!Allowances.canRewind(tier)) throw ApiException.forbidden("Rewind is a Plus & Gold perk.");
+        if (matches.existsByUserLowAndUserHigh(Match.low(likerId, likeeId), Match.high(likerId, likeeId))) {
+            throw ApiException.conflict("You've already matched — unmatch from the chat instead.");
+        }
+        likes.findByLikerIdAndLikeeId(likerId, likeeId).ifPresent(like -> {
+            likes.delete(like);
+            if (like.isSuperLike()) refundSuperLike(likerId, like.getCreatedAt());
+            discoverService.evict(likerId);
+            // An incognito member is only in the decks of people they wagged at.
+            discoverService.evict(likeeId);
+        });
+    }
+
+    /** Gives a pet note back if it was spent in the week now being counted. Never fails the rewind. */
+    private void refundSuperLike(UUID likerId, java.time.Instant sentAt) {
+        try {
+            String key = Allowances.weeklySuperLikesKey(likerId);
+            if (!key.equals(Allowances.weeklySuperLikesKey(likerId, sentAt))) return;
+            Object used = redis.opsForValue().get(key);
+            if (used != null && Long.parseLong(used.toString()) > 0) redis.opsForValue().decrement(key);
+        } catch (Exception e) {
+            // no Redis, no refund
+        }
+    }
+
     @Transactional
     public void pass(UUID passerId, UUID passeeId) {
         validateTarget(passerId, passeeId);

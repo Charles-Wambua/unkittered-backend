@@ -30,13 +30,21 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     long countByMatchIdAndSenderIdNotAndReadAtIsNullAndCreatedAtAfter(UUID matchId, UUID senderId,
                                                                     java.time.Instant after);
 
-    /** Mark every message the viewer received in this conversation as read. */
+    /**
+     * One page of a conversation, newest first: messages strictly between
+     * {@code after} and {@code before}. The caller asks for one more than it
+     * shows to learn whether older messages remain.
+     */
+    List<Message> findByMatchIdAndCreatedAtAfterAndCreatedAtBeforeOrderByCreatedAtDesc(
+            UUID matchId, Instant after, Instant before, org.springframework.data.domain.Pageable page);
+
+    /** Mark every message the viewer received in this conversation as read; returns how many changed. */
     @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Message m SET m.readAt = :now
         WHERE m.matchId = :matchId AND m.senderId <> :viewerId AND m.readAt IS NULL
         """)
-    void markRead(@Param("matchId") UUID matchId,
+    int markRead(@Param("matchId") UUID matchId,
                   @Param("viewerId") UUID viewerId,
                   @Param("now") Instant now);
 }

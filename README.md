@@ -55,7 +55,7 @@ Also wired: `POST /v1/super-likes`, `POST /v1/passes`.
 | POST   | `/v1/me/photos`                           | yes  | multipart `file` → `{url}`                     |
 | GET    | `/v1/matches`                             | yes  | → `{matches:[{id,profile,createdAt}]}`        |
 | GET    | `/v1/conversations`                       | yes  | → `{conversations:[{matchId,profile,…}]}`     |
-| GET    | `/v1/conversations/{matchId}/messages`    | yes  | → `{messages:[{id,isMe,text,…}]}` (marks read)|
+| GET    | `/v1/conversations/{matchId}/messages`    | yes  | → `{messages:[{id,isMe,text,…}],hasMore}` (marks read; optional `?limit=&before=`)|
 | POST   | `/v1/conversations/{matchId}/messages`    | yes  | `{text}` → `{…message}`                       |
 | GET    | `/v1/subscriptions/me`                    | yes  | → `{tier}`                                    |
 | POST   | `/v1/subscriptions/verify`                | yes  | `{productId}` → `{tier}`                       |
@@ -77,7 +77,8 @@ flutter run --dart-define=USE_MOCK_DATA=false \
 ```
 
 Real-time chat is delivered over a WebSocket at `ws://<host>/ws/chat?token=<jwt>`
-(message + match events pushed live).
+(message + match events pushed live; see "Live chat, profiles by id, rewind" below for
+the rest of the socket's events).
 
 ## Pet-first fields (migration V18)
 
@@ -118,6 +119,19 @@ working: every new field is additive and the legacy shapes are still filled in.
 | Location & map | `PUT /v1/me/location {latitude, longitude}` (stored to ~100 m). `GET /v1/discover/map` → people from your deck on a ~2 km grid with a fixed per-person offset; hidden-distance members never appear. |
 | Reels / stories | Posting a reel is Plus & Gold (**403** otherwise). Story text is moderated and capped at 220 characters. |
 | Species | `rabbit`, `fish`, `horse`, `small_pet` join dog / cat / bird / reptile / other. |
+
+## Live chat, profiles by id, rewind (no migration)
+
+All additive: older app builds keep working unchanged.
+
+| Area | Contract |
+|------|----------|
+| Profile by id | `GET /v1/profiles/{id}` → the same `ProfileDto` a deck card has for this viewer (compatibility, banded distance, badge, animals…). **404** `We couldn't find that profile.` for a bad or unknown id, a suspended or deleted account, a block in either direction, or a paused / incognito member the viewer has no tie to (matches can always open each other; an incognito member is also open to people they wagged at, as in the deck). Your own id works. |
+| Message paging | `GET /v1/conversations/{matchId}/messages?limit=&before=` → `{messages:[…], hasMore}`. `limit` is clamped to 1–100; `before` is an ISO-8601 instant, exclusive. With `limit` you get the newest `limit` messages older than `before` (newest overall without it), still oldest first, and `hasMore` says older ones remain (never reaching behind a "delete chat"). Without `limit` the whole thread comes back as before, with `hasMore: false` (`before` is ignored). `replyTo` quotes resolve even when the quoted message is outside the page. A bad `limit` or `before` is **400**. |
+| Read receipts | `POST /v1/conversations/{matchId}/read` → **204**: marks the chat read without fetching it. Whenever this or the messages `GET` newly marks something read, the other member gets `{"type":"read","matchId","readAt"}` over the socket. |
+| Typing | Clients may send `{"type":"typing","matchId"}` on the socket; the other member of that chat receives `{"type":"typing","matchId","userId"}`. At most one per second per connection is relayed; anything else inbound (malformed, unknown, not your chat) is ignored and never closes the socket. |
+| Presence | When a member's first connection opens or their last one closes, their matches who are connected receive `{"type":"presence","userId","online"}`. Nothing is sent for members who hide their activity status. Best effort. |
+| Take back a wag | `DELETE /v1/likes/{profileId}` → **204** (also when there was no wag). Plus & Gold only (**403** `Rewind is a Plus & Gold perk.`); **409** once the two have matched. The profile can come back in the deck and leaves the other person's `likes/received`. A pet note (super-like) taken back in the ISO week it was sent goes back into the weekly allowance. |
 
 ## File storage (self-hosting friendly)
 

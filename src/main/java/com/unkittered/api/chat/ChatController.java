@@ -41,10 +41,22 @@ public class ChatController {
         return Map.of("conversations", chat.conversationsFor(CurrentUser.id()));
     }
 
-    @Operation(summary = "Get the messages in a conversation (marks them read)")
+    @Operation(summary = "Get the messages in a conversation (marks them read)",
+            description = "Without `limit` the whole thread is returned. With `limit` (1-100) the newest "
+                    + "`limit` messages older than `before` (an ISO-8601 instant, exclusive; newest overall "
+                    + "when absent) are returned, still oldest first, and `hasMore` says older ones remain.")
     @GetMapping("/conversations/{matchId}/messages")
-    public Map<String, List<MessageDto>> messages(@PathVariable String matchId) {
-        return Map.of("messages", chat.messages(CurrentUser.id(), parseId(matchId)));
+    public ChatDtos.MessagePage messages(@PathVariable String matchId,
+                                         @RequestParam(required = false) String limit,
+                                         @RequestParam(required = false) String before) {
+        return chat.messages(CurrentUser.id(), parseId(matchId), parseLimit(limit), parseInstant(before));
+    }
+
+    @Operation(summary = "Mark a conversation read without fetching it (the other person gets a live `read` event)")
+    @PostMapping("/conversations/{matchId}/read")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void markRead(@PathVariable String matchId) {
+        chat.markRead(CurrentUser.id(), parseId(matchId));
     }
 
     @Operation(summary = "Send a message in a conversation")
@@ -107,6 +119,24 @@ public class ChatController {
     @PostMapping("/conversations/{matchId}/date-plans")
     public ChatService.ConciergeResult datePlans(@PathVariable String matchId) {
         return chat.datePlans(CurrentUser.id(), parseId(matchId));
+    }
+
+    private static Integer parseLimit(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return Integer.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            throw ApiException.badRequest("limit must be a number");
+        }
+    }
+
+    private static java.time.Instant parseInstant(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return java.time.Instant.parse(raw.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw ApiException.badRequest("before must be an ISO-8601 instant");
+        }
     }
 
     private UUID parseId(String raw) {

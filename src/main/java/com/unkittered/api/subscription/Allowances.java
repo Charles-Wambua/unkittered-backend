@@ -42,6 +42,12 @@ public final class Allowances {
         return "gold".equals(t);
     }
 
+    /** Who can take back a wag (rewind): Plus and Gold. */
+    public static boolean canRewind(String tier) {
+        String t = normalise(tier);
+        return "plus".equals(t) || "gold".equals(t);
+    }
+
     public static int monthlyBoosts(String tier) {
         return switch (normalise(tier)) {
             case "gold" -> 5;
@@ -55,7 +61,12 @@ public final class Allowances {
     }
 
     public static String weeklySuperLikesKey(UUID userId) {
-        LocalDate now = LocalDate.now(ZoneOffset.UTC);
+        return weeklySuperLikesKey(userId, java.time.Instant.now());
+    }
+
+    /** The counter for the ISO week (UTC) that {@code at} falls in. */
+    public static String weeklySuperLikesKey(UUID userId, java.time.Instant at) {
+        LocalDate now = LocalDate.ofInstant(at, ZoneOffset.UTC);
         int week = now.get(WeekFields.ISO.weekOfWeekBasedYear());
         int year = now.get(WeekFields.ISO.weekBasedYear());
         return "superlikes:weekly:" + userId + ":" + year + "-" + week;

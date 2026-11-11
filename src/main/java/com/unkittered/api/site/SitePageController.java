@@ -18,6 +18,7 @@ public class SitePageController {
             "/guidelines", "/guidelines/**", "/safety", "/safety/**",
             "/delete-account", "/delete-account/**", "/support", "/support/**",
             "/u/**",
+            "/.well-known/assetlinks.json",
     };
 
     @GetMapping("/")
